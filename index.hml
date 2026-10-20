@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meu Treino</title>
+
+<!-- Suporte a PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1d4ed8">
+
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9ecef;--c:#fff;--t:#12161b;--m:#5d6672;--bd:#d3d8de;--ab:#eef1f4;--on:#fff;--A:#1d4ed8;--B:#c62828;--C:#2e7d32;--ok:#1b7a3d;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1113;--c:#1a1d21;--t:#eceff3;--m:#9aa3ae;--bd:#2c3137;--ab:#23272c;--on:#0f1113;--A:#6d9bff;--B:#ff7a73;--C:#5fd07a;--ok:#5fd07a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1113;--c:#1a1d21;--t:#eceff3;--m:#9aa3ae;--bd:#2c3137;--ab:#23272c;--on:#0f1113;--A:#6d9bff;--B:#ff7a73;--C:#5fd07a;--ok:#5fd07a;color-scheme:dark}
+html,body{margin:0;background:var(--bg);color:var(--t);font:16px/1.45 Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{background:var(--bg)}
+h1,h2,.nm{font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;letter-spacing:.2px}
+h1{font-size:34px;margin:4px 0 0;line-height:1.05}h2{font-size:22px;margin:22px 0 8px}
+small,.m{color:var(--m)}
+#app{max-width:560px;margin:0 auto;padding:14px 14px 120px}
+.cd{background:var(--c);border:1px solid var(--bd);border-left:6px solid var(--a,var(--bd));border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.A{--a:var(--A)}.B{--a:var(--B)}.C{--a:var(--C)}
+.row{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-top:8px}
+.row>*{flex:1}.row .ib{flex:0 0 44px}
+.nm{font-size:23px;font-weight:700;line-height:1.1}
+button{font:inherit;font-weight:600;color:var(--t);background:var(--c);border:1px solid var(--bd);border-radius:8px;min-height:44px;padding:0 12px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--a,var(--A));outline-offset:1px}
+.pr{background:var(--a,var(--t));color:var(--on);border-color:var(--a,var(--t))}
+.sp{display:flex;align-items:center;gap:8px;margin:6px 0}.sp span{flex:1;color:var(--m)}.sp button{width:48px;padding:0;font-size:22px}.sp b{min-width:76px;text-align:center;font-size:19px}
+.in{background:var(--ab);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:15px}
+.sg{background:var(--ab);border-left:4px solid var(--ok);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:15px}.sg button{min-height:34px;margin-left:6px}
+.tg{font:600 13px Barlow,sans-serif;background:var(--a);color:var(--on);border-radius:5px;padding:1px 7px;vertical-align:middle}
+.sk .nm{text-decoration:line-through;color:var(--m)}
+.top{color:var(--ok);font-weight:600}
+.pk button{display:block;width:100%;text-align:left;margin-top:6px}.pk .on{border-color:var(--a);box-shadow:inset 0 0 0 2px var(--a)}
+input,textarea{font:inherit;color:var(--t);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px;min-height:44px;box-sizing:border-box;width:100%}
+textarea{min-height:110px;margin-top:8px;font:13px/1.3 ui-monospace,monospace}
+label{flex:1;color:var(--m);font-size:14px}
+.hd{display:flex;gap:12px;align-items:center;margin-bottom:12px}.hd button{flex:0 0 48px}
+#bar{position:fixed;left:0;right:0;bottom:0;background:var(--c);border-top:1px solid var(--bd);padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:center}
+#bar[hidden]{display:none}#bar button{flex:1}#tm{flex:1.3;font:700 22px "Barlow Condensed",sans-serif;text-align:center}
+#ts{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--t);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;z-index:9;max-width:90%}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="bar" hidden><span id="tm">Descanso</span><button data-a="rest" data-v="60">60s</button><button data-a="rest" data-v="90">90s</button><button data-a="rest" data-v="120">120s</button><button data-a="stop" aria-label="Parar">✕</button></div>
+<div id="ts"></div>
+
+<script>
+const K='treino_v1',$=s=>document.querySelector(s),L='ABC';
+const mk=(l,i,a)=>({id:l+i,n:a[0],s:a[1],r:a[2],d:a[3],t:a[4],a:a[5].map(x=>({n:x[0],d:x[1]})),u:a[6]||'rep'});
+const P={
+A:['Pernas e core',[
+['Leg press 45°',3,'8-12','Sente com costas e quadril bem apoiados, pés na largura dos ombros. Desça controlando até cerca de 90° nos joelhos e empurre sem travar no topo.','Não deixe o quadril descolar do banco nem os joelhos caírem para dentro.',[['Agachamento goblet','Halter junto ao peito, desça com o tronco ereto e suba empurrando o chão.'],['Agachamento no Smith','Pés um pouco à frente da barra, desça até cerca de 90° e suba controlando.']]],
+['Stiff com halteres',3,'8-12','Em pé, halteres à frente das coxas. Leve o quadril para trás com joelhos levemente flexionados e desça até sentir alongar atrás da coxa. Suba contraindo o glúteo.','Costas retas o tempo todo e halteres rentes às pernas.',[['Stiff na barra','Mesma execução, com a barra deslizando rente às pernas.'],['Stiff no Smith','Mesma execução, com a barra guiada; bom para aprender o movimento.']]],
+['Cadeira extensora',3,'12-15','Ajuste o encosto para o joelho alinhar com o eixo da máquina. Estenda as pernas até quase travar e desça em 2 a 3 segundos.','Sem impulso; faça uma pausa curta no topo.',[['Afundo com halteres','Passo à frente, desça o joelho de trás quase ao chão e empurre de volta.'],['Step-up no banco','Suba no banco empurrando com a perna da frente, sem impulso da de trás.']]],
+['Mesa flexora',3,'12-15','Deitado de bruços, joelhos na borda do banco e rolete sobre o calcanhar. Leve o calcanhar ao glúteo e volte devagar.','Quadril colado ao banco, sem arquear a lombar.',[['Cadeira flexora','Sentado, prenda as coxas e puxe o rolete para baixo e para trás.'],['Flexora em pé','Em pé na máquina, flexione uma perna por vez sem balançar o corpo.']]],
+['Panturrilha em pé',3,'12-15','Ombros sob o apoio, pontas dos pés na plataforma. Suba o máximo possível, pause 1 segundo e desça alongando bem.','Amplitude completa vale mais que carga.',[['Panturrilha sentado','Joelhos a 90° sob o apoio; suba nas pontas e desça alongando.'],['Panturrilha no leg press','Só as pontas dos pés na plataforma; empurre e volte alongando.']]],
+['Prancha',3,'30-45','Apoie antebraços e pontas dos pés, corpo em linha reta. Contraia abdômen e glúteos e respire normalmente.','Quadril nem alto nem caído; pare se a lombar doer.',[['Prancha lateral','De lado sobre um antebraço, corpo reto; troque de lado na série seguinte.'],['Abdominal na máquina','Contraia o abdômen para flexionar o tronco, sem puxar com os braços.']],'s']]],
+B:['Empurrar: peito, ombro e tríceps',[
+['Supino reto com halteres',3,'8-12','Deitado, halteres na altura do peito, escápulas juntas e pés firmes. Empurre aproximando os halteres no alto e desça controlando.','Cotovelos a cerca de 45° do tronco, sem arquear demais a lombar.',[['Chest press (máquina)','Ajuste o banco para as pegadas ficarem na altura do peito e empurre sem travar os cotovelos.'],['Flexão de braço','Mãos na largura dos ombros, corpo reto; apoie os joelhos se precisar.']]],
+['Supino inclinado com halteres',3,'8-12','Banco a 30° a 45°. Empurre os halteres para cima e levemente para dentro, descendo até a linha do peito.','Não suba demais o banco, senão vira exercício de ombro.',[['Supino inclinado na máquina','Mesma ideia, com trajetória guiada.'],['Supino inclinado no Smith','Banco inclinado sob a barra; desça até o peito alto e empurre.']]],
+['Desenvolvimento com halteres',3,'8-12','Sentado com encosto, halteres na altura das orelhas. Empurre acima da cabeça sem bater os halteres e desça controlando.','Abdômen firme, sem jogar o tronco para trás.',[['Desenvolvimento na máquina','Ajuste o banco para as pegadas ficarem na altura dos ombros e empurre.'],['Desenvolvimento no Smith','Sentado sob a barra, empurre até quase estender os cotovelos.']]],
+['Elevação lateral',3,'12-15','Em pé, halteres ao lado do corpo e cotovelos levemente flexionados. Eleve os braços até a altura dos ombros e desça devagar.','Carga leve; não balance o tronco.',[['Elevação lateral na polia','Mesma execução, com tensão constante.'],['Elevação lateral na máquina','Cotovelos nas almofadas, eleve até a altura dos ombros.']]],
+['Tríceps na polia',3,'10-15','Cotovelos colados ao corpo. Estenda os braços para baixo até quase travar e volte até 90°.','Só o antebraço se move; ombros relaxados.',[['Tríceps francês com halter','Halter acima da cabeça, desça atrás da nuca e estenda.'],['Tríceps testa','Deitado, desça os halteres em direção à testa e estenda.']]]]],
+C:['Puxar: costas, bíceps e glúteos',[
+['Puxada na frente',3,'8-12','Pegada um pouco além da largura dos ombros. Puxe a barra até o queixo ou peito alto levando os cotovelos para baixo e volte controlando.','Peito aberto, sem puxar com impulso do tronco.',[['Puxada articulada','Mesma ideia, com pegadas guiadas e trajetória fixa.'],['Barra fixa assistida','Use a assistência para repetições completas, queixo acima da barra.']]],
+['Remada sentada',3,'8-12','Sentado, tronco ereto. Puxe levando os cotovelos para trás, aproximando as escápulas, e volte controlando.','Sem balançar o tronco; sinta as costas, não os braços.',[['Remada articulada','Peito apoiado na almofada; puxe os cotovelos para trás.'],['Remada curvada com halteres','Tronco inclinado, costas retas; puxe os halteres em direção ao quadril.']]],
+['Remada unilateral com halter',3,'10-12','Apoie uma mão e o joelho no banco. Puxe o halter em direção ao quadril e desça alongando as costas.','Tronco paralelo ao chão, sem girar.',[['Remada unilateral na polia','Mesma execução, com tensão constante.'],['Remada cavalinho','Peito apoiado, puxe a barra em direção ao abdômen.']]],
+['Elevação pélvica',3,'8-12','Costas apoiadas no banco, barra ou halter sobre o quadril. Suba contraindo o glúteo até alinhar tronco e coxas e desça controlando.','Queixo para o peito; não hiperestenda a lombar.',[['Elevação pélvica no Smith','Mesma execução, com a barra guiada.'],['Coice na polia','Perna estendida para trás contraindo o glúteo, sem arquear a lombar.']]],
+['Rosca direta',3,'10-12','Em pé, cotovelos junto ao corpo. Flexione os braços até a altura do peito e desça devagar.','Sem balançar o corpo; cotovelos parados.',[['Rosca alternada com halteres','Um braço por vez, girando a palma para cima ao subir.'],['Rosca na polia','Mesma execução, com tensão constante.']]],
+['Face pull',3,'12-15','Polia na altura do rosto com corda. Puxe em direção ao rosto abrindo os cotovelos e feche as escápulas.','Carga leve; foque na parte de trás dos ombros.',[['Crucifixo inverso (máquina)','Peito apoiado, abra os braços para trás.'],['Crucifixo inverso com halteres','Tronco inclinado, abra os braços até a altura dos ombros.']]]]]};
+let S,view='home',el='',open={},cd=false,rt=0,tm,bk='',tt;
+function load(){try{const j=JSON.parse(localStorage.getItem(K));if(j&&j.plan&&j.hist)return j}catch(e){}return null}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+S=load()||{plan:{},hist:[],last:{},cur:null};S.last=S.last||{};
+L.split('').forEach(l=>{if(!S.plan[l])S.plan[l]=P[l][1].map((a,i)=>mk(l,i,a))});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>String(n).replace('.',','),low=e=>parseInt(e.r)||8,tp=e=>parseInt(String(e.r).split('-').pop())||0;
+const nm=(e,x)=>x.alt>=0&&e.a[x.alt]?e.a[x.alt].n:e.n;
+function mkIt(e,alt){const n=alt>=0?e.a[alt].n:e.n,l=S.last[n];return{alt,kg:l?l.kg:0,s:l?l.s:e.s,r:l?l.r:low(e),skip:false}}
+function gi(e){if(!S.cur.it[e.id])S.cur.it[e.id]=mkIt(e,-1);return S.cur.it[e.id]}
+function toast(t){const b=$('#ts');b.textContent=t;b.style.display='block';clearTimeout(tt);tt=setTimeout(()=>b.style.display='none',2800)}
+function wc(){const n=new Date(),s=new Date(n.getFullYear(),n.getMonth(),n.getDate()-(n.getDay()+6)%7).getTime();return S.hist.filter(h=>h.d>=s).length}
+const sp=(l,id,f,v)=>`<div class=sp><span>${l}</span><button data-a=m data-i=${id} data-f=${f} aria-label="Diminuir">−</button><b>${v}</b><button data-a=p data-i=${id} data-f=${f} aria-label="Aumentar">+</button></div>`;
+function vh(){const c=S.cur,x=S.hist[0]?L[(L.indexOf(S.hist[0].w)+1)%3]:'A';
+let h=`<h1>Meu treino</h1><small>${wc()} de 3 treinos nesta semana</small><div style="height:14px"></div>`;
+if(c)h+=`<div class="cd ${c.w}"><b>Treino ${c.w} em andamento</b><div class=row><button class=pr data-a=cont>Continuar</button><button data-a=disc>${cd?'Confirmar descarte':'Descartar'}</button></div></div>`;
+L.split('').forEach(l=>h+=`<div class="cd ${l}"><div class=nm>Treino ${l} ${l==x?'<span class=tg>próximo</span>':''}</div><small>${P[l][0]}, ${S.plan[l].length} exercícios</small><div class=row><button class=pr data-a=start data-v=${l}>Iniciar treino</button><button data-a=edit data-v=${l}>Editar lista</button></div></div>`);
+h+='<h2>Histórico</h2>';
+if(!S.hist.length)h+='<small>Nenhum treino concluído ainda. Inicie o treino do dia.</small>';
+S.hist.slice(0,12).forEach(z=>h+=`<details class="cd ${z.w}"><summary><b>Treino ${z.w}</b> em ${new Date(z.d).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})}, ${z.m} min</summary><small>${z.it.map(i=>`${esc(i.n)}: ${i.kg?fmt(i.kg)+' kg, ':''}${i.s}×${i.r}${i.u=='s'?' s':''}`).join('<br>')}${z.cm?`<br>Esteira: ${esc(z.cm)} min${z.ck?' a '+esc(z.ck)+' km/h':''}`:''}</small></details>`);
+h+=`<h2>Backup</h2><button style="width:100%" data-a=tbk>${open.bk?'Fechar':'Backup e restauração'}</button>`;
+if(open.bk)h+=`<div class=cd><small>Os dados ficam só neste navegador. Gere o backup, copie o texto e guarde numa nota ou mensagem para você mesmo.</small><div class=row><button data-a=exp>Gerar backup</button><button data-a=cpy>Copiar</button></div><textarea id=bk readonly>${esc(bk)}</textarea><div style="height:10px"></div><small>Para restaurar, cole o texto aqui:</small><textarea id=im></textarea><div class=row><button class=pr data-a=imp>Restaurar backup</button></div></div>`;
+return h}
+function vw(){const c=S.cur,l=c.w;let h=`<div class=hd><button data-a=home aria-label="Início">←</button><div><h1>Treino ${l}</h1><small>${P[l][0]}</small></div></div>`;
+S.plan[l].forEach(e=>{const x=gi(e),n=nm(e,x),la=S.last[n],s=e.u=='s';
+const info=x.alt>=0?e.a[x.alt].d:esc(e.d)+(e.t?`<br><b>Dica:</b> ${esc(e.t)}`:'');
+h+=`<div class="cd ${l}${x.skip?' sk':''}"><div class=row style="margin:0"><div class=nm>${esc(n)}</div><button class=ib data-a=info data-i=${e.id} aria-label="Como executar">ℹ</button></div>`;
+h+=`<small>Meta ${e.s}×${esc(e.r)}${s?' s':''}. ${la?'Última vez: '+(la.kg?fmt(la.kg)+' kg, ':'')+la.s+'×'+la.r:'Sem registro ainda'}</small>`;
+if(open['i'+e.id])h+=`<div class=in>${info}</div>`;
+if(!x.skip){
+if(la&&la.up&&!s&&x.kg==la.kg)h+=`<div class=sg>Você bateu o topo da faixa. Tente ${fmt(la.kg+2.5)} kg.<button data-a=apply data-i=${e.id}>Aplicar</button></div>`;
+if(!s)h+=sp('Carga',e.id,'kg',fmt(x.kg)+' kg');
+h+=sp('Séries',e.id,'s',x.s)+sp(s?'Tempo':'Repetições',e.id,'r',x.r+(s?' s':''));
+if(!s&&x.kg>0&&x.r>=tp(e))h+='<div class=top>Topo da faixa atingido</div>';
+if(open['a'+e.id])h+=`<div class=pk><button class="${x.alt<0?'on':''}" data-a=pick data-i=${e.id} data-v=-1>${esc(e.n)}</button>${e.a.map((z,k)=>`<button class="${x.alt==k?'on':''}" data-a=pick data-i=${e.id} data-v=${k}>${esc(z.n)}</button>`).join('')}</div>`}
+h+=`<div class=row>${!x.skip&&e.a.length?`<button data-a=alt data-i=${e.id}>${open['a'+e.id]?'Fechar opções':'Trocar exercício'}</button>`:''}<button data-a=skip data-i=${e.id}>${x.skip?'Incluir de novo':'Pular'}</button></div></div>`});
+h+=`<div class="cd ${l}"><div class=nm>Cardio na esteira</div><div class=row><label>Minutos<input type=number inputmode=decimal data-f=cm value="${esc(c.cm)}"></label><label>Velocidade (km/h)<input type=number inputmode=decimal data-f=ck value="${esc(c.ck)}"></label></div></div>`;
+return h+`<button class=pr style="width:100%;min-height:52px;font-size:18px;--a:var(--t)" data-a=fin>Concluir treino</button>`}
+function ve(){let h=`<div class=hd><button data-a=home aria-label="Início">←</button><div><h1>Editar treino ${el}</h1><small>Nome, séries e faixa de repetições</small></div></div>`;
+S.plan[el].forEach((e,i)=>h+=`<div class="cd ${el}"><input data-f=n data-i=${i} value="${esc(e.n)}" aria-label="Nome"><div class=row><label>Séries<input type=number data-f=s data-i=${i} value=${e.s} min=1></label><label>Repetições<input data-f=r data-i=${i} value="${esc(e.r)}"></label><button data-a=del data-i=${i} style="margin-top:20px">Remover</button></div></div>`);
+return h+`<button class=pr style="width:100%;--a:var(--${el})" data-a=add>Adicionar exercício</button>`}
+function r(){$('#app').innerHTML=view=='wk'&&S.cur?vw():view=='ed'?ve():vh();$('#bar').hidden=!(view=='wk'&&S.cur)}
+function rest(s){rt=Date.now()+s*1000;clearInterval(tm);tm=setInterval(tick,250);tick()}
+function tick(){const t=Math.ceil((rt-Date.now())/1000),b=$('#tm');if(t<=0){clearInterval(tm);b.textContent='Pronto!';try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=880;o.start();o.stop(a.currentTime+.4)}catch(e){}try{navigator.vibrate&&navigator.vibrate([300,100,300])}catch(e){}}else b.textContent=Math.floor(t/60)+':'+String(t%60).padStart(2,'0')}
+function fin(){const c=S.cur,it=[];S.plan[c.w].forEach(e=>{const x=gi(e);if(x.skip)return;const n=nm(e,x);it.push({n,kg:x.kg,s:x.s,r:x.r,u:e.u});S.last[n]={kg:x.kg,s:x.s,r:x.r,up:e.u!='s'&&x.kg>0&&x.r>=tp(e)}});
+S.hist.unshift({d:Date.now(),w:c.w,m:Math.max(1,Math.round((Date.now()-c.st)/6e4)),it,cm:c.cm||'',ck:c.ck||''});S.hist=S.hist.slice(0,200);S.cur=null;view='home';clearInterval(tm);toast('Treino '+c.w+' concluído e registrado')}
+document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,i=b.dataset.i,v=b.dataset.v,f=b.dataset.f,c=S.cur,e=c&&S.plan[c.w].find(z=>z.id==i);
+if(a!='disc')cd=false;
+switch(a){
+case'home':view='home';break;
+case'start':if(c&&c.w!=v){toast('Há um treino em andamento. Continue ou descarte.');return}if(!c)S.cur={w:v,st:Date.now(),it:{},cm:'',ck:''};view='wk';break;
+case'cont':view='wk';break;
+case'disc':if(cd){S.cur=null;cd=false}else cd=true;break;
+case'info':open['i'+i]=!open['i'+i];break;
+case'alt':open['a'+i]=!open['a'+i];break;
+case'pick':{const x=gi(e),k=x.skip;Object.assign(x,mkIt(e,+v),{skip:k});open['a'+i]=false;break}
+case'skip':{const x=gi(e);x.skip=!x.skip;break}
+case'm':case'p':{const x=gi(e),st=f=='kg'?2.5:(f=='r'&&e.u=='s'?5:1);x[f]=Math.max(0,+(x[f]+(a=='p'?st:-st)).toFixed(1));break}
+case'apply':{const x=gi(e);x.kg=S.last[nm(e,x)].kg+2.5;x.r=low(e);break}
+case'rest':rest(+v);return;
+case'stop':clearInterval(tm);$('#tm').textContent='Descanso';return;
+case'fin':fin();break;
+case'edit':el=v;view='ed';break;
+case'add':S.plan[el].push({id:'x'+Date.now(),n:'Novo exercício',s:3,r:'8-12',d:'',t:'',a:[],u:'rep'});break;
+case'del':S.plan[el].splice(+i,1);break;
+case'tbk':open.bk=!open.bk;break;
+case'exp':bk=JSON.stringify({...S,cur:null});break;
+case'cpy':{const t=$('#bk');if(!t||!t.value){toast('Gere o backup primeiro');return}t.select();let ok=false;try{ok=document.execCommand('copy')}catch(x){}toast(ok?'Backup copiado':'Selecione o texto e copie manualmente');return}
+case'imp':try{const j=JSON.parse($('#im').value);if(!j.plan||!j.hist)throw 0;j.cur=null;j.last=j.last||{};S=j;toast('Backup restaurado')}catch(x){toast('Texto de backup inválido');return}break}
+save();r()});
+document.addEventListener('change',ev=>{const t=ev.target,f=t.dataset.f;if(!f)return;if(f=='cm'||f=='ck'&&S.cur)S.cur[f]=t.value;else if(view=='ed'){const e=S.plan[el][t.dataset.i];if(e)e[f]=f=='s'?Math.max(1,+t.value||3):t.value}save()});
+r();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js');
+  });
+}
+</script>
+</body>
+</html>
