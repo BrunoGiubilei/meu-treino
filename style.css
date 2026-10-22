@@ -1,0 +1,382 @@
+/* =========================================================
+   Meu Treino — estilos
+   Seções:
+     1. Cores e temas (claro / escuro)
+     2. Base (página, títulos, texto)
+     3. Cartões e linhas
+     4. Botões e campos
+     5. Componentes do treino (stepper, dicas, sugestão...)
+     6. Barra de descanso e aviso (toast)
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   1. Cores e temas
+   O tema escuro aparece duas vezes de propósito:
+   - dentro do @media: segue o tema do celular (modo "auto")
+   - em [data-theme="dark"]: força o escuro manualmente
+   Se mudar uma cor escura, altere nos dois lugares.
+   --------------------------------------------------------- */
+:root {
+  --bg: #e9ecef;          /* fundo da página */
+  --card: #ffffff;        /* fundo de cartões e botões */
+  --text: #12161b;        /* texto principal */
+  --muted: #5d6672;       /* texto secundário */
+  --border: #d3d8de;      /* bordas */
+  --surface-alt: #eef1f4; /* fundo de caixas de apoio (dica, sugestão) */
+  --on-accent: #ffffff;   /* texto sobre a cor de destaque */
+  --color-A: #1d4ed8;     /* treino A */
+  --color-B: #c62828;     /* treino B */
+  --color-C: #2e7d32;     /* treino C */
+  --ok: #1b7a3d;          /* verde de "meta batida" */
+
+  color-scheme: light;
+  box-sizing: border-box;
+  /* respeita a área segura (notch / barra do celular) */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113;
+    --card: #1a1d21;
+    --text: #eceff3;
+    --muted: #9aa3ae;
+    --border: #2c3137;
+    --surface-alt: #23272c;
+    --on-accent: #0f1113;
+    --color-A: #6d9bff;
+    --color-B: #ff7a73;
+    --color-C: #5fd07a;
+    --ok: #5fd07a;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1113;
+  --card: #1a1d21;
+  --text: #eceff3;
+  --muted: #9aa3ae;
+  --border: #2c3137;
+  --surface-alt: #23272c;
+  --on-accent: #0f1113;
+  --color-A: #6d9bff;
+  --color-B: #ff7a73;
+  --color-C: #5fd07a;
+  --ok: #5fd07a;
+  color-scheme: dark;
+}
+
+
+/* ---------------------------------------------------------
+   2. Base
+   --------------------------------------------------------- */
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 Barlow, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+h1,
+h2,
+.exercise-name {
+  font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  letter-spacing: 0.2px;
+}
+
+h1 {
+  font-size: 34px;
+  margin: 4px 0 0;
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: 22px;
+  margin: 22px 0 8px;
+}
+
+small,
+.muted {
+  color: var(--muted);
+}
+
+/* container principal; o padding de baixo deixa espaço para a barra de descanso */
+#app {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px 14px 120px;
+}
+
+.spacer {
+  height: 14px;
+}
+
+.spacer-small {
+  height: 10px;
+}
+
+
+/* ---------------------------------------------------------
+   3. Cartões e linhas
+   --------------------------------------------------------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  /* a faixa colorida da esquerda usa --accent (definido pelas classes workout-X) */
+  border-left: 6px solid var(--accent, var(--border));
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+}
+
+/* cada treino define a sua cor de destaque */
+.workout-A { --accent: var(--color-A); }
+.workout-B { --accent: var(--color-B); }
+.workout-C { --accent: var(--color-C); }
+
+/* linha horizontal; os filhos dividem o espaço igualmente */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.row > * {
+  flex: 1;
+}
+
+.row-flush {
+  margin: 0;
+}
+
+/* cabeçalho das telas internas (botão voltar + título) */
+.header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.header button {
+  flex: 0 0 48px;
+}
+
+.exercise-name {
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+
+/* ---------------------------------------------------------
+   4. Botões e campos
+   --------------------------------------------------------- */
+button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--accent, var(--color-A));
+  outline-offset: 1px;
+}
+
+/* botão principal (preenchido com a cor de destaque) */
+.primary {
+  background: var(--accent, var(--text));
+  color: var(--on-accent);
+  border-color: var(--accent, var(--text));
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-finish {
+  min-height: 52px;
+  font-size: 18px;
+  --accent: var(--text);
+}
+
+/* botão de ícone (ℹ) ao lado do nome do exercício */
+.row .icon-button {
+  flex: 0 0 44px;
+}
+
+/* alinha o botão "Remover" com os campos que têm rótulo acima */
+.btn-align-label {
+  margin-top: 20px;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 44px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+textarea {
+  min-height: 110px;
+  margin-top: 8px;
+  font: 13px/1.3 ui-monospace, monospace;
+}
+
+label {
+  flex: 1;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+
+/* ---------------------------------------------------------
+   5. Componentes do treino
+   --------------------------------------------------------- */
+
+/* controle "− valor +" (carga, séries, repetições) */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.stepper span {
+  flex: 1;
+  color: var(--muted);
+}
+
+.stepper button {
+  width: 48px;
+  padding: 0;
+  font-size: 22px;
+}
+
+.stepper b {
+  min-width: 76px;
+  text-align: center;
+  font-size: 19px;
+}
+
+/* caixa de "como executar" / dica */
+.info-box {
+  background: var(--surface-alt);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+/* caixa de sugestão de aumento de carga */
+.suggestion {
+  background: var(--surface-alt);
+  border-left: 4px solid var(--ok);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.suggestion button {
+  min-height: 34px;
+  margin-left: 6px;
+}
+
+/* etiqueta "próximo" */
+.tag {
+  font: 600 13px Barlow, sans-serif;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 5px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+
+/* exercício pulado: nome riscado */
+.skipped .exercise-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* aviso "Topo da faixa atingido" */
+.top-reached {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* lista para trocar de exercício */
+.picker button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-top: 6px;
+}
+
+.picker .selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+
+/* ---------------------------------------------------------
+   6. Barra de descanso e aviso (toast)
+   --------------------------------------------------------- */
+#rest-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#rest-bar[hidden] {
+  display: none;
+}
+
+#rest-bar button {
+  flex: 1;
+}
+
+#rest-timer {
+  flex: 1.3;
+  font: 700 22px "Barlow Condensed", sans-serif;
+  text-align: center;
+}
+
+#toast {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 8px;
+  display: none; /* o JS mostra por alguns segundos */
+  z-index: 9;
+  max-width: 90%;
+}
