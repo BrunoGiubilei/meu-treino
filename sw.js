@@ -6,7 +6,7 @@
    CACHE_NAME (treino-v2 -> treino-v3...). Sem isso, o celular
    continua usando os arquivos antigos guardados no cache.
    ========================================================= */
-const CACHE_NAME = 'treino-v3';
+const CACHE_NAME = 'treino-v4';
 
 const ASSETS = [
   './',

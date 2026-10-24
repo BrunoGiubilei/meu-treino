@@ -48,13 +48,14 @@ const WORKOUT_LETTERS = ['A', 'B', 'C'];
 const WEEKLY_GOAL = 3;            // meta de treinos por semana
 const MAX_HISTORY = 200;          // quantos treinos ficam guardados
 const HISTORY_SHOWN = 12;         // quantos aparecem na tela inicial
+const HISTORY_PAGE = 30;          // quantos treinos a tela de histórico mostra por vez
 const LOAD_STEP_KG = 1;           // passo dos botões +/− de carga (e da sugestão de aumento)
 const HOLD_STEP_SECONDS = 5;      // passo do tempo em exercícios como a prancha
 const DEFAULT_REPS_LOW = 8;       // usado se a faixa de repetições não puder ser lida
 const TOAST_DURATION_MS = 2800;
 
 // Nuvem (Cloudflare Worker). Troque pelo endereço do seu Worker, sem "/" no final.
-   const API_URL = 'https://api.bruno-treino.workers.dev';
+const API_URL = 'https://api.bruno-treino.workers.dev';
 const TOKEN_KEY = 'treino_token';        // token da API (fica só neste aparelho, fora do backup)
 const SYNC_META_KEY = 'treino_sync';     // { rev, dirty } — controle da sincronização
 const SAFETY_COPY_KEY = 'treino_copia_antes_sync'; // cópia local guardada antes de trocar pelos dados da nuvem
@@ -346,8 +347,11 @@ let state = normalizeState(loadState() || { plan: {}, hist: [], last: {}, cur: n
 let lastSavedJson = JSON.stringify(state);   // último estado gravado, para detectar mudanças
 
 // Estado só da tela (não é salvo)
-let currentView = 'home';          // 'home' | 'workout' | 'edit'
+let currentView = 'home';          // 'home' | 'workout' | 'edit' | 'history' | 'history-edit'
 let editingLetter = '';            // treino aberto na tela de edição
+let editingWorkoutD = null;        // data (d) do treino do histórico aberto para edição
+let historyShown = HISTORY_PAGE;   // quantos treinos a lista do histórico mostra agora
+let confirmingHistoryDelete = false; // 1º toque em "Apagar este treino" já foi dado
 let openPanels = {};               // painéis abertos: 'info:ID', 'alts:ID', 'backup'
 let confirmingDiscard = false;     // true depois do 1º toque em "Descartar"
 let backupText = '';               // texto do backup gerado
@@ -456,14 +460,18 @@ function renderStepper(label, exerciseId, field, valueText) {
 
 /* ---------- Tela inicial ---------- */
 
-function renderHistoryItem(workout) {
-  const date = new Date(workout.d).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-
-  const lines = workout.it.map(item => {
+function formatHistoryLines(workout) {
+  return workout.it.map(item => {
     const load = item.kg ? `${formatNumber(item.kg)} kg, ` : '';
     const unit = item.u === 's' ? ' s' : '';
     return `${escapeHtml(item.n)}: ${load}${item.s}×${item.r}${unit}`;
   }).join('<br>');
+}
+
+function renderHistoryItem(workout) {
+  const date = new Date(workout.d).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+  const lines = formatHistoryLines(workout);
 
   let cardio = '';
   if (workout.cm) {
@@ -588,6 +596,9 @@ function renderHome() {
   state.hist.slice(0, HISTORY_SHOWN).forEach(workout => {
     html += renderHistoryItem(workout);
   });
+  if (state.hist.length) {
+    html += '<button class="btn-full" data-action="history">Ver e editar histórico</button>';
+  }
 
   // Sincronização
   html += `
@@ -740,6 +751,72 @@ function renderEdit() {
   return html;
 }
 
+/* ---------- Histórico: lista completa e edição de um treino ---------- */
+
+function renderHistoryList() {
+  let html = `
+    <div class="header">
+      <button data-action="home" aria-label="Início">←</button>
+      <div>
+        <h1>Histórico</h1>
+        <small>${state.hist.length} ${state.hist.length === 1 ? 'treino guardado' : 'treinos guardados'}</small>
+      </div>
+    </div>`;
+
+  state.hist.slice(0, historyShown).forEach(workout => {
+    const date = new Date(workout.d).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
+    html += `
+      <div class="card workout-${workout.w}">
+        <b>Treino ${workout.w}</b> em ${date}, ${workout.m} min<br>
+        <small>${formatHistoryLines(workout)}</small>
+        <div class="row">
+          <button data-action="history-edit" data-value="${workout.d}">Editar</button>
+        </div>
+      </div>`;
+  });
+
+  if (state.hist.length > historyShown) {
+    html += '<button class="btn-full" data-action="history-more">Mostrar mais</button>';
+  }
+  return html;
+}
+
+function renderHistoryEdit() {
+  const workout = findHistoryWorkout(editingWorkoutD);
+  if (!workout) return renderHistoryList();   // o treino não existe mais (ex.: veio outra versão da nuvem)
+
+  const date = new Date(workout.d).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  let html = `
+    <div class="header">
+      <button data-action="history" aria-label="Voltar ao histórico">←</button>
+      <div>
+        <h1>Editar treino ${workout.w}</h1>
+        <small>${date}</small>
+      </div>
+    </div>`;
+
+  workout.it.forEach((item, index) => {
+    const timed = item.u === 's';
+    html += `
+      <div class="card workout-${workout.w}">
+        <div class="exercise-name">${escapeHtml(item.n)}</div>
+        <div class="row">
+          <label>Carga (kg)<input type="number" inputmode="decimal" step="any" min="0" data-field="hkg" data-index="${index}" value="${item.kg || 0}"></label>
+          <label>Séries<input type="number" inputmode="numeric" min="1" data-field="hs" data-index="${index}" value="${item.s || 0}"></label>
+          <label>${timed ? 'Segundos' : 'Repetições'}<input type="number" inputmode="numeric" min="0" data-field="hr" data-index="${index}" value="${item.r || 0}"></label>
+        </div>
+      </div>`;
+  });
+
+  html += `
+    <div class="spacer-small"></div>
+    <button class="btn-full${confirmingHistoryDelete ? ' primary' : ''}" style="--accent: var(--color-B)" data-action="history-delete">
+      ${confirmingHistoryDelete ? 'Confirmar: apagar este treino' : 'Apagar este treino'}
+    </button>`;
+  return html;
+}
+
 /* ---------- Escolhe a tela certa e desenha ---------- */
 
 function render() {
@@ -749,6 +826,10 @@ function render() {
     $('#app').innerHTML = renderWorkout();
   } else if (currentView === 'edit') {
     $('#app').innerHTML = renderEdit();
+  } else if (currentView === 'history') {
+    $('#app').innerHTML = renderHistoryList();
+  } else if (currentView === 'history-edit') {
+    $('#app').innerHTML = renderHistoryEdit();
   } else {
     $('#app').innerHTML = renderHome();
   }
@@ -865,6 +946,60 @@ function changeValue(exercise, field, direction) {
 
   // toFixed evita erros de ponto flutuante (ex.: 0.1 + 0.2); nunca fica abaixo de zero
   entry[field] = Math.max(0, +(entry[field] + direction * step).toFixed(1));
+}
+
+/** Acha um treino do histórico pela data (que serve de identificador). */
+function findHistoryWorkout(d) {
+  return state.hist.find(workout => workout.d === d);
+}
+
+/** Exercício da lista cujo nome (ou o de uma alternativa) é `name`. */
+function findPlanExerciseByName(name) {
+  for (const letter of WORKOUT_LETTERS) {
+    const found = state.plan[letter].find(exercise =>
+      exercise.n === name || exercise.a.some(alt => alt.n === name));
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Refaz a "última carga" de um exercício a partir do treino mais recente que o contém.
+ * É o que mantém o valor pré-preenchido e a sugestão de aumento certos depois de
+ * corrigir ou apagar um treino. Sem nenhum treino com esse exercício, apaga a entrada.
+ */
+function syncLastFor(name) {
+  for (const workout of state.hist) {          // do mais recente para o mais antigo
+    const item = workout.it.find(entry => entry.n === name);
+    if (!item) continue;
+
+    const exercise = findPlanExerciseByName(name);
+    state.last[name] = {
+      kg: item.kg,
+      s: item.s,
+      r: item.r,
+      up: !!exercise && item.u !== 's' && item.kg > 0 && item.r >= repsUpperBound(exercise),
+    };
+    return;
+  }
+  delete state.last[name];
+}
+
+/** Grava no histórico o valor digitado na tela de edição de um treino. */
+function changeHistoryField(input) {
+  const workout = findHistoryWorkout(editingWorkoutD);
+  const item = workout && workout.it[input.dataset.index];
+  const key = { hkg: 'kg', hs: 's', hr: 'r' }[input.dataset.field];
+  if (!item || !key) return;
+
+  const typed = parseFloat(String(input.value).replace(',', '.'));
+  if (Number.isFinite(typed) && typed >= 0) {
+    if (key === 'kg') item.kg = Math.round(typed * 100) / 100;
+    else if (key === 's') item.s = Math.max(1, Math.round(typed));
+    else item.r = Math.round(typed);
+  }
+  input.value = item[key] || 0;   // mostra o valor aceito (ou volta ao anterior se o texto era inválido)
+  syncLastFor(item.n);
 }
 
 function copyBackup() {
@@ -1008,6 +1143,38 @@ const actions = {
     state.plan[editingLetter].splice(+index, 1);
   },
 
+  // ----- histórico -----
+  'history'() {
+    currentView = 'history';
+  },
+
+  'history-more'() {
+    historyShown += HISTORY_PAGE;
+  },
+
+  'history-edit'({ value }) {
+    editingWorkoutD = +value;
+    currentView = 'history-edit';
+  },
+
+  // Apaga o treino aberto (pede 2º toque para confirmar)
+  'history-delete'() {
+    if (!confirmingHistoryDelete) {
+      confirmingHistoryDelete = true;
+      return;
+    }
+    confirmingHistoryDelete = false;
+
+    const workout = findHistoryWorkout(editingWorkoutD);
+    if (workout) {
+      state.hist = state.hist.filter(item => item !== workout);
+      workout.it.forEach(item => syncLastFor(item.n));
+      showToast('Treino apagado');
+    }
+    editingWorkoutD = null;
+    currentView = 'history';
+  },
+
   // ----- backup -----
   'toggle-backup'() {
     togglePanel('backup');
@@ -1098,6 +1265,7 @@ document.addEventListener('click', event => {
   const exercise = session ? state.plan[session.w].find(item => item.id === id) : undefined;
 
   if (action !== 'discard') confirmingDiscard = false;
+  if (action !== 'history-delete') confirmingHistoryDelete = false;
   if (action !== 'sync-use-remote' && action !== 'sync-keep-local') confirmingSync = '';
 
   const handler = actions[action];
@@ -1114,7 +1282,10 @@ document.addEventListener('change', event => {
   const field = input.dataset.field;
   if (!field) return;
 
-  if ((field === 'cm' || field === 'ck') && state.cur) {
+  if (currentView === 'history-edit') {
+    // edição de um treino do histórico
+    changeHistoryField(input);
+  } else if ((field === 'cm' || field === 'ck') && state.cur) {
     // cardio do treino em andamento
     state.cur[field] = input.value;
   } else if (currentView === 'edit') {
