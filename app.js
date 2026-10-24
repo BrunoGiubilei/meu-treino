@@ -9,7 +9,8 @@
      5. Telas (início, treino, edição)
      6. Cronômetro de descanso
      7. Ações dos botões
-     8. Inicialização e Service Worker
+     8. Sincronização com a nuvem (Cloudflare Worker + D1)
+     9. Inicialização e Service Worker
 
    FORMATO DOS DADOS SALVOS (state)
    Os nomes curtos abaixo são os que já estão salvos no celular e
@@ -51,6 +52,13 @@ const LOAD_STEP_KG = 1;           // passo dos botões +/− de carga (e da suge
 const HOLD_STEP_SECONDS = 5;      // passo do tempo em exercícios como a prancha
 const DEFAULT_REPS_LOW = 8;       // usado se a faixa de repetições não puder ser lida
 const TOAST_DURATION_MS = 2800;
+
+// Nuvem (Cloudflare Worker). Troque pelo endereço do seu Worker, sem "/" no final.
+   const API_URL = 'https://api.bruno-treino.workers.dev';
+const TOKEN_KEY = 'treino_token';        // token da API (fica só neste aparelho, fora do backup)
+const SYNC_META_KEY = 'treino_sync';     // { rev, dirty } — controle da sincronização
+const SAFETY_COPY_KEY = 'treino_copia_antes_sync'; // cópia local guardada antes de trocar pelos dados da nuvem
+const SYNC_DELAY_MS = 1500;              // espera depois da última mudança antes de enviar
 
 
 /* =========================================================
@@ -307,25 +315,35 @@ function loadState() {
   return null;
 }
 
+/** Salva no aparelho e avisa a sincronização, mas só se algo realmente mudou. */
 function saveState() {
+  const json = JSON.stringify(state);
+  if (json === lastSavedJson) return;   // cliques que não alteram dados (abrir painel etc.)
+  lastSavedJson = json;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, json);
   } catch (error) {
     // armazenamento cheio ou bloqueado: ignora
   }
+  markChanged();
+}
+
+/** Completa o que faltar (campo last, lista de fábrica de cada treino). */
+function normalizeState(data) {
+  data.last = data.last || {};
+  data.plan = data.plan || {};
+  WORKOUT_LETTERS.forEach(letter => {
+    if (!data.plan[letter]) {
+      data.plan[letter] = DEFAULT_WORKOUTS[letter].exercises
+        .map((def, index) => createExercise(letter, index, def));
+    }
+  });
+  return data;
 }
 
 // Dados salvos (ou um estado vazio na primeira vez)
-let state = loadState() || { plan: {}, hist: [], last: {}, cur: null };
-state.last = state.last || {};
-
-// Se algum treino não tem lista ainda, usa a lista de fábrica
-WORKOUT_LETTERS.forEach(letter => {
-  if (!state.plan[letter]) {
-    state.plan[letter] = DEFAULT_WORKOUTS[letter].exercises
-      .map((def, index) => createExercise(letter, index, def));
-  }
-});
+let state = normalizeState(loadState() || { plan: {}, hist: [], last: {}, cur: null });
+let lastSavedJson = JSON.stringify(state);   // último estado gravado, para detectar mudanças
 
 // Estado só da tela (não é salvo)
 let currentView = 'home';          // 'home' | 'workout' | 'edit'
@@ -336,6 +354,7 @@ let backupText = '';               // texto do backup gerado
 let restEndsAt = 0;                // horário (ms) em que o descanso termina
 let restInterval = null;           // intervalo que atualiza o cronômetro
 let toastTimeout = null;
+let confirmingSync = '';           // '' | 'remote' | 'local': 1º toque numa escolha de sincronização
 
 
 /* =========================================================
@@ -477,6 +496,51 @@ function renderBackupPanel() {
     </div>`;
 }
 
+/** Painel para conectar (token) e sincronizar manualmente. */
+function renderSyncPanel() {
+  const connected = getToken() && syncStatus !== 'auth';
+  const controls = connected
+    ? `<div class="row">
+         <button data-action="sync-now">Sincronizar agora</button>
+         <button data-action="sync-disconnect">Desconectar</button>
+       </div>`
+    : `<input type="password" id="sync-token" placeholder="Cole o token aqui" autocomplete="off">
+       <div class="row">
+         <button class="primary" data-action="sync-connect">Conectar</button>
+       </div>`;
+  return `
+    <div class="card">
+      <small>Guarda uma cópia dos dados na nuvem para usar em mais de um aparelho. O token fica só neste aparelho e não entra no backup.</small>
+      <div class="spacer-small"></div>
+      ${controls}
+    </div>`;
+}
+
+/** Cartão mostrado quando este aparelho e a nuvem têm dados diferentes. */
+function renderSyncConflict() {
+  const remote = syncConflict.remote;
+  const title = remote ? 'Dados diferentes na nuvem' : 'A nuvem ainda está vazia';
+  const useRemoteLabel = confirmingSync === 'remote'
+    ? 'Confirmar: trocar os dados deste aparelho'
+    : 'Usar os dados da nuvem';
+  const keepLocalLabel = !remote
+    ? 'Enviar os dados deste aparelho'
+    : confirmingSync === 'local'
+      ? 'Confirmar: substituir a nuvem'
+      : 'Manter os deste aparelho';
+
+  return `
+    <div class="card">
+      <b>${title}</b>
+      <div><small>Este aparelho: ${describeState(state)}</small></div>
+      <div><small>Nuvem: ${remote ? describeState(remote.state) : 'vazia'}</small></div>
+      <div class="row">
+        ${remote ? `<button data-action="sync-use-remote">${useRemoteLabel}</button>` : ''}
+        <button class="primary" data-action="sync-keep-local">${keepLocalLabel}</button>
+      </div>
+    </div>`;
+}
+
 function renderHome() {
   const session = state.cur;
   const next = nextWorkoutLetter();
@@ -484,7 +548,11 @@ function renderHome() {
   let html = `
     <h1>Meu treino</h1>
     <small>${countWorkoutsThisWeek()} de ${WEEKLY_GOAL} treinos nesta semana</small>
+    <div><small id="sync-status">${escapeHtml(syncLabel())}</small></div>
     <div class="spacer"></div>`;
+
+  // Dados diferentes entre este aparelho e a nuvem: precisa escolher
+  if (syncConflict) html += renderSyncConflict();
 
   // Aviso de treino em andamento
   if (session) {
@@ -520,6 +588,12 @@ function renderHome() {
   state.hist.slice(0, HISTORY_SHOWN).forEach(workout => {
     html += renderHistoryItem(workout);
   });
+
+  // Sincronização
+  html += `
+    <h2>Nuvem</h2>
+    <button class="btn-full" data-action="toggle-sync">${openPanels.sync ? 'Fechar' : 'Sincronização'}</button>`;
+  if (openPanels.sync) html += renderSyncPanel();
 
   // Backup
   html += `
@@ -951,6 +1025,67 @@ const actions = {
   'import-backup'() {
     return importBackup();
   },
+
+  // ----- nuvem -----
+  'toggle-sync'() {
+    togglePanel('sync');
+  },
+
+  'sync-connect'() {
+    const token = ($('#sync-token').value || '').trim();
+    if (!token) {
+      showToast('Cole o token primeiro');
+      return false;
+    }
+    setToken(token);
+    syncStatus = 'idle';
+    syncNow();
+  },
+
+  'sync-disconnect'() {
+    clearTimeout(pushTimer);
+    localStorage.removeItem(TOKEN_KEY);
+    syncConflict = null;
+    syncStatus = 'idle';
+    showToast('Nuvem desconectada neste aparelho');
+  },
+
+  'sync-now'() {
+    if (syncConflict) {
+      showToast('Escolha primeiro qual versão manter');
+      return false;
+    }
+    syncNow();
+    return false;
+  },
+
+  // Troca os dados deste aparelho pelos da nuvem (pede 2º toque para confirmar)
+  'sync-use-remote'() {
+    if (!syncConflict || !syncConflict.remote) return;
+    if (confirmingSync !== 'remote') {
+      confirmingSync = 'remote';
+      return;
+    }
+    confirmingSync = '';
+    adoptRemote(syncConflict.remote);
+    showToast('Dados da nuvem carregados');
+  },
+
+  // Mantém os dados deste aparelho e grava por cima da nuvem (2º toque, se a nuvem tiver dados)
+  'sync-keep-local'() {
+    if (!syncConflict) return;
+    const remote = syncConflict.remote;
+    if (remote && confirmingSync !== 'local') {
+      confirmingSync = 'local';
+      return;
+    }
+    confirmingSync = '';
+    syncConflict = null;
+    syncMeta = { rev: remote ? remote.rev : 0, dirty: true };
+    saveSyncMeta();
+    syncStatus = 'idle';
+    pushPending();
+  },
 };
 
 // Um único "ouvinte" trata todos os cliques de botões
@@ -963,6 +1098,7 @@ document.addEventListener('click', event => {
   const exercise = session ? state.plan[session.w].find(item => item.id === id) : undefined;
 
   if (action !== 'discard') confirmingDiscard = false;
+  if (action !== 'sync-use-remote' && action !== 'sync-keep-local') confirmingSync = '';
 
   const handler = actions[action];
   const result = handler ? handler({ id, index, value, field, session, exercise }) : undefined;
@@ -993,9 +1129,265 @@ document.addEventListener('change', event => {
 
 
 /* =========================================================
-   8. Inicialização e Service Worker (funcionamento offline)
+   8. Sincronização com a nuvem (Cloudflare Worker + D1)
+
+   Como funciona:
+     - O app continua usando o localStorage; a nuvem é uma cópia.
+     - A nuvem guarda uma "revisão" (rev) que sobe a cada gravação.
+       Este aparelho lembra a última rev que viu (syncMeta.rev) e se
+       tem mudanças ainda não enviadas (syncMeta.dirty).
+     - Ao enviar, o app diz qual rev espera. Se a nuvem já estiver
+       em outra, ela recusa (409) e o app pede para você escolher
+       qual versão manter. Nada é sobrescrito sozinho.
+     - Na primeira conexão deste aparelho também é você quem escolhe.
+   ========================================================= */
+let syncMeta = loadSyncMeta();      // { rev: número ou null (nunca sincronizou), dirty: true/false }
+let syncStatus = 'idle';            // 'idle' | 'syncing' | 'ok' | 'offline' | 'auth' | 'conflict'
+let syncConflict = null;            // { remote: { rev, state } ou null se a nuvem está vazia }
+let syncing = false;                // true enquanto há uma chamada à nuvem em andamento
+let pushTimer = null;
+let changeCounter = 0;              // conta mudanças locais (para saber se mudou durante o envio)
+
+function loadSyncMeta() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SYNC_META_KEY));
+    if (saved && typeof saved === 'object') {
+      return {
+        rev: Number.isInteger(saved.rev) ? saved.rev : null,
+        dirty: !!saved.dirty,
+      };
+    }
+  } catch (error) {
+    // dados inválidos: começa como "nunca sincronizou"
+  }
+  return { rev: null, dirty: false };
+}
+
+function saveSyncMeta() {
+  try {
+    localStorage.setItem(SYNC_META_KEY, JSON.stringify(syncMeta));
+  } catch (error) {
+    // armazenamento cheio ou bloqueado: ignora
+  }
+}
+
+function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function setToken(token) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch (error) {
+    showToast('Não foi possível guardar o token');
+  }
+}
+
+/** Texto curto para o resumo de um estado (usado na tela de conflito). */
+function describeState(data) {
+  const total = data.hist.length;
+  if (!total) return 'nenhum treino registrado';
+  const last = new Date(data.hist[0].d).toLocaleDateString('pt-BR');
+  return `${total} ${total === 1 ? 'treino' : 'treinos'}, o último em ${last}`;
+}
+
+function syncLabel() {
+  if (!getToken()) return 'Nuvem desligada';
+  if (syncStatus === 'conflict') return 'Nuvem: escolha qual versão manter';
+  if (syncStatus === 'auth') return 'Nuvem: token recusado';
+  if (syncStatus === 'syncing') return 'Nuvem: sincronizando…';
+  if (syncMeta.rev === null) return 'Nuvem: aguardando a primeira sincronização';
+  if (syncMeta.dirty) {
+    return syncStatus === 'offline' ? 'Nuvem: pendente, sem conexão' : 'Nuvem: salvando…';
+  }
+  return 'Nuvem: sincronizado';
+}
+
+function updateSyncLabel() {
+  const label = $('#sync-status');
+  if (label) label.textContent = syncLabel();
+}
+
+/** Troca o status. Redesenha a tela só quando o cartão de conflito aparece ou some. */
+function setSyncStatus(next) {
+  const conflictChanged = (next === 'conflict') !== (syncStatus === 'conflict');
+  if (next === 'auth' && syncStatus !== 'auth') showToast('A nuvem recusou o token');
+  syncStatus = next;
+  if (conflictChanged && currentView === 'home') render();
+  else updateSyncLabel();
+}
+
+/** Chamada pelo saveState quando os dados mudaram de verdade. */
+function markChanged() {
+  changeCounter++;
+  if (!syncMeta.dirty) {
+    syncMeta.dirty = true;
+    saveSyncMeta();
+  }
+  updateSyncLabel();
+  schedulePush();
+}
+
+function schedulePush() {
+  clearTimeout(pushTimer);
+  if (!getToken() || syncMeta.rev === null || syncConflict || syncStatus === 'auth') return;
+  pushTimer = setTimeout(pushPending, SYNC_DELAY_MS);
+}
+
+function apiFetch(path, options = {}) {
+  return fetch(API_URL + path, {
+    ...options,
+    cache: 'no-store',
+    headers: {
+      'Authorization': 'Bearer ' + getToken(),
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+/** Lê a nuvem. Devolve { remote } (remote = null se vazia) ou { auth: true } se o token foi recusado. */
+async function fetchRemote() {
+  const response = await apiFetch('/state');
+  if (response.status === 404) return { remote: null };
+  if (response.status === 401) return { auth: true };
+  if (!response.ok) throw new Error('GET /state: ' + response.status);
+
+  const remote = await response.json();
+  if (!remote || !Number.isInteger(remote.rev) || !remote.state ||
+      !remote.state.plan || !Array.isArray(remote.state.hist)) {
+    throw new Error('Resposta da nuvem em formato inesperado');
+  }
+  return { remote };
+}
+
+/** Envia o estado atual. Só deve ser chamada quando syncMeta.rev é um número. */
+async function doPush() {
+  const sentAt = changeCounter;
+  const response = await apiFetch('/state', {
+    method: 'PUT',
+    body: JSON.stringify({ baseRev: syncMeta.rev, state }),
+  });
+
+  if (response.status === 401) {
+    setSyncStatus('auth');
+    return;
+  }
+
+  if (response.status === 409) {
+    // a nuvem mudou desde a última leitura: busca a versão dela e pede a escolha
+    const result = await fetchRemote();
+    if (result.auth) {
+      setSyncStatus('auth');
+      return;
+    }
+    syncConflict = { remote: result.remote };
+    setSyncStatus('conflict');
+    return;
+  }
+
+  if (!response.ok) throw new Error('PUT /state: ' + response.status);
+
+  const { rev } = await response.json();
+  syncMeta.rev = rev;
+  if (sentAt === changeCounter) syncMeta.dirty = false;   // mudou durante o envio? continua pendente
+  saveSyncMeta();
+  setSyncStatus('ok');
+  if (syncMeta.dirty) schedulePush();
+}
+
+/** Envio disparado pelo temporizador (depois de uma mudança). */
+async function pushPending() {
+  if (syncing) {
+    schedulePush();
+    return;
+  }
+  if (!getToken() || syncMeta.rev === null || syncConflict) return;
+
+  syncing = true;
+  setSyncStatus('syncing');
+  try {
+    await doPush();
+  } catch (error) {
+    setSyncStatus('offline');   // sem rede ou erro do servidor: continua pendente
+  } finally {
+    syncing = false;
+  }
+}
+
+/** Troca os dados deste aparelho pelos da nuvem, guardando antes uma cópia dos atuais. */
+function adoptRemote(remote) {
+  try {
+    localStorage.setItem(SAFETY_COPY_KEY, JSON.stringify(state));
+  } catch (error) {
+    // sem espaço: segue mesmo assim
+  }
+  state = normalizeState(remote.state);
+  lastSavedJson = JSON.stringify(state);
+  try {
+    localStorage.setItem(STORAGE_KEY, lastSavedJson);
+  } catch (error) {
+    // armazenamento cheio ou bloqueado: ignora
+  }
+  syncMeta = { rev: remote.rev, dirty: false };
+  saveSyncMeta();
+  syncConflict = null;
+  syncStatus = 'ok';
+}
+
+/** Compara este aparelho com a nuvem e decide: nada a fazer, enviar, receber ou pedir escolha. */
+async function reconcile(remote) {
+  const remoteRev = remote ? remote.rev : 0;
+
+  if (syncMeta.rev === null) {
+    // primeira vez neste aparelho: quem decide é você
+    syncConflict = { remote };
+    setSyncStatus('conflict');
+  } else if (remoteRev === syncMeta.rev) {
+    if (syncMeta.dirty) await doPush();
+    else setSyncStatus('ok');
+  } else if (remote && !syncMeta.dirty) {
+    // a nuvem está mais nova e este aparelho não tem nada pendente: só atualiza
+    adoptRemote(remote);
+    render();
+  } else {
+    // as duas mudaram (ou a nuvem foi esvaziada): quem decide é você
+    syncConflict = { remote };
+    setSyncStatus('conflict');
+  }
+}
+
+/** Lê a nuvem e sincroniza. Roda ao abrir o app, ao voltar para ele e ao recuperar a conexão. */
+async function syncNow() {
+  if (!getToken() || syncing || syncConflict) return;
+
+  syncing = true;
+  setSyncStatus('syncing');
+  try {
+    const result = await fetchRemote();
+    if (result.auth) setSyncStatus('auth');
+    else await reconcile(result.remote);
+  } catch (error) {
+    setSyncStatus('offline');
+  } finally {
+    syncing = false;
+  }
+}
+
+
+/* =========================================================
+   9. Inicialização e Service Worker (funcionamento offline)
    ========================================================= */
 render();
+syncNow();
+
+window.addEventListener('online', syncNow);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncNow();
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

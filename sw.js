@@ -6,7 +6,7 @@
    CACHE_NAME (treino-v2 -> treino-v3...). Sem isso, o celular
    continua usando os arquivos antigos guardados no cache.
    ========================================================= */
-const CACHE_NAME = 'treino-v2';
+const CACHE_NAME = 'treino-v3';
 
 const ASSETS = [
   './',
@@ -46,6 +46,9 @@ self.addEventListener('activate', (event) => {
 
 // Requisições: responde com o cache; se não tiver, busca na rede
 self.addEventListener('fetch', (event) => {
+  // só cuida de GET do próprio app; a API (outro domínio, PUT) passa direto
+  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
+
   event.respondWith(
     caches.match(event.request).then((response) => response || fetch(event.request))
   );
