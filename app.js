@@ -18,22 +18,27 @@
    deixam de funcionar.
 
      state = {
-       plan: { A: [exercício...], B: [...], C: [...] },
+       plan: { [idDoTreino]: [exercício...] },   // ids originais: A, B, C
        hist: [treino concluído...],   // o mais recente primeiro
        last: { 'Nome do exercício': { kg, s, r, up } },
-       cur:  treino em andamento, ou null
+       cur:  treino em andamento, ou null,
+       treinos: { [idDoTreino]: { nome, desc, cor } },   // cor = posição em COLOR_KEYS
+       fichas:  [{ id, nome, treinos: [idDoTreino...] }]  // treino fora de toda ficha = "Sem ficha"
      }
+     (treinos e fichas são opcionais: dados antigos sem eles são convertidos
+      ao abrir, com A, B e C dentro da ficha "Ficha atual".)
 
      exercício       = { id, n: nome, s: séries, r: faixa de repetições,
                          d: como executar, t: dica,
                          a: [{ n, d }] alternativas,
                          u: 'rep' (repetições) ou 's' (segundos) }
-     treino em curso = { w: letra, st: início (ms), cm: min de esteira,
+     treino em curso = { w: idDoTreino, st: início (ms), cm: min de esteira,
                          ck: km/h da esteira, it: { [idExercício]: entrada } }
      entrada         = { alt: índice da alternativa (-1 = original),
                          kg, s, r, skip: true se foi pulado }
-     histórico       = { d: data (ms), w: letra, m: duração (min),
-                         it: [{ n, kg, s, r, u }], cm, ck }
+     histórico       = { d: data (ms), w: idDoTreino, m: duração (min),
+                         it: [{ n, kg, s, r, u }], cm, ck,
+                         wn: nome do treino na hora (usado se o treino for removido) }
      last[nome]      = última carga usada; up = true se bateu o topo da faixa
    ========================================================= */
 
@@ -44,7 +49,8 @@
    1. Configurações
    ========================================================= */
 const STORAGE_KEY = 'treino_v1';
-const WORKOUT_LETTERS = ['A', 'B', 'C'];
+const LEGACY_IDS = ['A', 'B', 'C'];    // treinos originais (usados para converter dados antigos)
+const COLOR_KEYS = ['A', 'B', 'C', 'D', 'E', 'F'];   // cores disponíveis para os treinos (ver style.css)
 const WEEKLY_GOAL = 3;            // meta de treinos por semana
 const MAX_HISTORY = 200;          // quantos treinos ficam guardados
 const HISTORY_SHOWN = 12;         // quantos aparecem na tela inicial
@@ -329,16 +335,53 @@ function saveState() {
   markChanged();
 }
 
-/** Completa o que faltar (campo last, lista de fábrica de cada treino). */
+/**
+ * Completa o que faltar e converte dados antigos para o formato atual.
+ * Dados sem `treinos` (versões anteriores, backups antigos, primeira abertura)
+ * ganham A, B e C com os nomes de sempre, todos dentro da ficha "Ficha atual".
+ */
 function normalizeState(data) {
   data.last = data.last || {};
   data.plan = data.plan || {};
-  WORKOUT_LETTERS.forEach(letter => {
-    if (!data.plan[letter]) {
-      data.plan[letter] = DEFAULT_WORKOUTS[letter].exercises
-        .map((def, index) => createExercise(letter, index, def));
-    }
+
+  if (!data.treinos || typeof data.treinos !== 'object') {
+    data.treinos = {};
+    LEGACY_IDS.forEach((id, index) => {
+      if (!data.plan[id]) {
+        data.plan[id] = DEFAULT_WORKOUTS[id].exercises
+          .map((def, position) => createExercise(id, position, def));
+      }
+      data.treinos[id] = { nome: 'Treino ' + id, desc: DEFAULT_WORKOUTS[id].title, cor: index };
+    });
+  }
+
+  // todo treino com lista tem dados de treino (e vice-versa), com campos válidos
+  Object.keys(data.plan).forEach(id => {
+    if (!data.treinos[id]) data.treinos[id] = {};
   });
+  Object.keys(data.treinos).forEach((id, position) => {
+    const treino = data.treinos[id];
+    if (typeof treino.nome !== 'string' || !treino.nome) treino.nome = 'Treino ' + id;
+    if (typeof treino.desc !== 'string') treino.desc = '';
+    if (!Number.isInteger(treino.cor) || treino.cor < 0) treino.cor = position % COLOR_KEYS.length;
+    if (!Array.isArray(data.plan[id])) data.plan[id] = [];
+  });
+
+  // fichas: cada uma só cita treinos que existem, e nenhum treino aparece em duas
+  if (!Array.isArray(data.fichas)) {
+    data.fichas = [{ id: 'ficha1', nome: 'Ficha atual', treinos: Object.keys(data.treinos) }];
+  }
+  const used = new Set();
+  data.fichas = data.fichas.filter(ficha => ficha && typeof ficha === 'object' && ficha.id);
+  data.fichas.forEach(ficha => {
+    if (typeof ficha.nome !== 'string' || !ficha.nome) ficha.nome = 'Ficha';
+    ficha.treinos = (Array.isArray(ficha.treinos) ? ficha.treinos : [])
+      .filter(id => data.treinos[id] && !used.has(id) && used.add(id));
+  });
+
+  // treino em andamento de um treino que não existe mais
+  if (data.cur && !data.plan[data.cur.w]) data.cur = null;
+
   return data;
 }
 
@@ -347,8 +390,10 @@ let state = normalizeState(loadState() || { plan: {}, hist: [], last: {}, cur: n
 let lastSavedJson = JSON.stringify(state);   // último estado gravado, para detectar mudanças
 
 // Estado só da tela (não é salvo)
-let currentView = 'home';          // 'home' | 'workout' | 'edit' | 'history' | 'history-edit'
-let editingLetter = '';            // treino aberto na tela de edição
+let currentView = 'home';          // 'home' | 'workout' | 'edit' | 'treino-edit' | 'ficha-edit' | 'history' | 'history-edit'
+let editingTreino = '';            // id do treino aberto na edição da lista ou nas configurações
+let editingFicha = '';             // id da ficha aberta na tela de edição da ficha
+let confirmingDelete = '';         // 1º toque em "Remover treino/ficha" já foi dado (guarda qual)
 let editingWorkoutD = null;        // data (d) do treino do histórico aberto para edição
 let historyShown = HISTORY_PAGE;   // quantos treinos a lista do histórico mostra agora
 let confirmingHistoryDelete = false; // 1º toque em "Apagar este treino" já foi dado
@@ -425,11 +470,57 @@ function countWorkoutsThisWeek() {
   return state.hist.filter(workout => workout.d >= weekStart).length;
 }
 
-/** Qual treino vem depois do último concluído (A -> B -> C -> A...). */
-function nextWorkoutLetter() {
-  if (!state.hist[0]) return WORKOUT_LETTERS[0];
-  const lastIndex = WORKOUT_LETTERS.indexOf(state.hist[0].w);
-  return WORKOUT_LETTERS[(lastIndex + 1) % WORKOUT_LETTERS.length];
+/* ---------- Treinos e fichas: nomes, cores e ordem ---------- */
+
+function workoutName(id) {
+  const treino = state.treinos[id];
+  return treino ? treino.nome : 'Treino ' + id;
+}
+
+/** Chave de cor do treino (A–F), usada nas classes workout-X e nas variáveis --color-X. */
+function workoutColorKey(id) {
+  const treino = state.treinos[id];
+  return COLOR_KEYS[(treino ? treino.cor : 0) % COLOR_KEYS.length];
+}
+
+/** Nome de um treino do histórico: o atual, ou o guardado na hora se o treino foi removido. */
+function historyName(workout) {
+  const treino = state.treinos[workout.w];
+  return treino ? treino.nome : (workout.wn || 'Treino ' + workout.w);
+}
+
+function historyColorKey(workout) {
+  if (state.treinos[workout.w]) return workoutColorKey(workout.w);
+  const legacy = LEGACY_IDS.indexOf(workout.w);
+  return COLOR_KEYS[legacy >= 0 ? legacy : 0];
+}
+
+function findFicha(id) {
+  return state.fichas.find(ficha => ficha.id === id);
+}
+
+/** Treinos que não estão em nenhuma ficha. */
+function unassignedWorkouts() {
+  const inFichas = new Set(state.fichas.flatMap(ficha => ficha.treinos));
+  return Object.keys(state.treinos).filter(id => !inFichas.has(id));
+}
+
+/** Tira o treino de todas as fichas e, se `fichaId` existir, coloca no fim dela. */
+function moveWorkoutToFicha(id, fichaId) {
+  state.fichas.forEach(ficha => {
+    ficha.treinos = ficha.treinos.filter(item => item !== id);
+  });
+  const destination = findFicha(fichaId);
+  if (destination) destination.treinos.push(id);
+}
+
+/** Próximo treino de uma ficha: o que vem depois do último concluído dela (A -> B -> C -> A...). */
+function nextWorkoutIn(ficha) {
+  const ids = ficha.treinos.filter(id => state.plan[id]);
+  if (!ids.length) return null;
+  const last = state.hist.find(workout => ids.includes(workout.w));
+  if (!last) return ids[0];
+  return ids[(ids.indexOf(last.w) + 1) % ids.length];
 }
 
 /** Mostra uma mensagem rápida no topo da tela. */
@@ -481,8 +572,8 @@ function renderHistoryItem(workout) {
   }
 
   return `
-    <details class="card workout-${workout.w}">
-      <summary><b>Treino ${workout.w}</b> em ${date}, ${workout.m} min</summary>
+    <details class="card workout-${historyColorKey(workout)}">
+      <summary><b>${escapeHtml(historyName(workout))}</b> em ${date}, ${workout.m} min</summary>
       <small>${lines}${cardio}</small>
     </details>`;
 }
@@ -550,9 +641,52 @@ function renderSyncConflict() {
     </div>`;
 }
 
+/** Uma ficha: menu com os cartões dos seus treinos e os botões de adicionar/editar. */
+function renderFicha(ficha) {
+  const ids = ficha.treinos.filter(id => state.plan[id]);
+  const next = nextWorkoutIn(ficha);
+
+  let body = ids.length
+    ? ids.map(id => renderWorkoutCard(id, id === next)).join('')
+    : '<small>Nenhum treino nesta ficha ainda.</small>';
+
+  body += `
+    <div class="row">
+      <button data-action="add-treino" data-value="${escapeHtml(ficha.id)}">Adicionar treino</button>
+      <button data-action="ficha-edit" data-value="${escapeHtml(ficha.id)}">Editar ficha</button>
+    </div>`;
+
+  return renderSection('ficha:' + ficha.id, `${escapeHtml(ficha.nome)} (${ids.length})`, body, 'section-ficha');
+}
+
+/** Cartão de um treino na tela inicial: iniciar e menu ⋯. */
+function renderWorkoutCard(id, isNext) {
+  const treino = state.treinos[id];
+  const nextTag = isNext ? '<span class="tag">próximo</span>' : '';
+  const count = state.plan[id].length;
+  const summary = [treino.desc, `${count} ${count === 1 ? 'exercício' : 'exercícios'}`]
+    .filter(Boolean).map(escapeHtml).join(', ');
+  const menuOpen = isPanelOpen('menu:' + id);
+  const safeId = escapeHtml(id);
+
+  return `
+    <div class="card workout-${workoutColorKey(id)}">
+      <div class="exercise-name">${escapeHtml(treino.nome)} ${nextTag}</div>
+      <small>${summary}</small>
+      <div class="row">
+        <button class="primary" data-action="start" data-value="${safeId}">Iniciar treino</button>
+        <button class="icon-button" data-action="toggle-panel" data-value="menu:${safeId}" aria-label="Mais opções de ${escapeHtml(treino.nome)}" aria-expanded="${menuOpen}">⋯</button>
+      </div>
+      ${menuOpen ? `
+      <div class="menu">
+        <button data-action="edit" data-value="${safeId}">Editar lista de exercícios</button>
+        <button data-action="treino-edit" data-value="${safeId}">Configurar treino</button>
+      </div>` : ''}
+    </div>`;
+}
+
 function renderHome() {
   const session = state.cur;
-  const next = nextWorkoutLetter();
 
   let html = `
     <h1>Meu treino</h1>
@@ -566,8 +700,8 @@ function renderHome() {
   // Aviso de treino em andamento
   if (session) {
     html += `
-      <div class="card workout-${session.w}">
-        <b>Treino ${session.w} em andamento</b>
+      <div class="card workout-${workoutColorKey(session.w)}">
+        <b>${escapeHtml(workoutName(session.w))} em andamento</b>
         <div class="row">
           <button class="primary" data-action="continue">Continuar</button>
           <button data-action="discard">${confirmingDiscard ? 'Confirmar descarte' : 'Descartar'}</button>
@@ -575,23 +709,19 @@ function renderHome() {
       </div>`;
   }
 
-  // Um cartão para cada treino (A, B, C)
-  WORKOUT_LETTERS.forEach(letter => {
-    const nextTag = letter === next ? '<span class="tag">próximo</span>' : '';
-    html += `
-      <div class="card workout-${letter}">
-        <div class="exercise-name">Treino ${letter} ${nextTag}</div>
-        <small>${DEFAULT_WORKOUTS[letter].title}, ${state.plan[letter].length} exercícios</small>
-        <div class="row">
-          <button class="primary" data-action="start" data-value="${letter}">Iniciar treino</button>
-          <button class="icon-button" data-action="toggle-panel" data-value="menu:${letter}" aria-label="Mais opções do treino ${letter}" aria-expanded="${isPanelOpen('menu:' + letter)}">⋯</button>
-        </div>
-        ${isPanelOpen('menu:' + letter) ? `
-        <div class="menu">
-          <button data-action="edit" data-value="${letter}">Editar lista de exercícios</button>
-        </div>` : ''}
-      </div>`;
+  // Fichas, cada uma com os seus treinos
+  state.fichas.forEach(ficha => {
+    html += renderFicha(ficha);
   });
+
+  // Treinos que não estão em nenhuma ficha
+  const loose = unassignedWorkouts();
+  if (loose.length) {
+    html += renderSection('ficha:_sem', `Sem ficha (${loose.length})`,
+      loose.map(id => renderWorkoutCard(id, false)).join(''), 'section-ficha');
+  }
+
+  html += '<button class="btn-full" data-action="add-ficha">Nova ficha</button>';
 
   // Histórico
   html += '<h2>Histórico</h2>';
@@ -617,10 +747,10 @@ function renderHome() {
 /* ---------- Tela do treino em andamento ---------- */
 
 /** Menu recolhível: botão com o título e, quando aberto, o conteúdo logo abaixo. */
-function renderSection(key, title, bodyHtml) {
+function renderSection(key, title, bodyHtml, extraClass = '') {
   const open = isPanelOpen(key);
   return `
-    <div class="section">
+    <div class="section${extraClass ? ' ' + extraClass : ''}">
       <button class="section-toggle" data-action="toggle-panel" data-value="${escapeHtml(key)}" aria-expanded="${open}">
         <span>${title}</span><span aria-hidden="true">${open ? '▾' : '▸'}</span>
       </button>
@@ -717,18 +847,20 @@ function renderExerciseCard(exercise, letter) {
 
 function renderWorkout() {
   const session = state.cur;
-  const letter = session.w;
+  const id = session.w;
+  const letter = workoutColorKey(id);   // chave de cor do treino
+  const description = state.treinos[id].desc;
 
   let html = `
     <div class="header">
       <button data-action="home" aria-label="Início">←</button>
       <div>
-        <h1>Treino ${letter}</h1>
-        <small>${DEFAULT_WORKOUTS[letter].title}</small>
+        <h1>${escapeHtml(workoutName(id))}</h1>
+        ${description ? `<small>${escapeHtml(description)}</small>` : ''}
       </div>
     </div>`;
 
-  state.plan[letter].forEach(exercise => {
+  state.plan[id].forEach(exercise => {
     html += renderExerciseCard(exercise, letter);
   });
 
@@ -749,18 +881,20 @@ function renderWorkout() {
 /* ---------- Tela de edição da lista ---------- */
 
 function renderEdit() {
-  const letter = editingLetter;
+  const id = editingTreino;
+  if (!state.plan[id]) return renderHome();   // o treino não existe mais
+  const letter = workoutColorKey(id);         // chave de cor do treino
 
   let html = `
     <div class="header">
       <button data-action="home" aria-label="Início">←</button>
       <div>
-        <h1>Editar treino ${letter}</h1>
+        <h1>Editar ${escapeHtml(workoutName(id))}</h1>
         <small>Toque em Editar para abrir um exercício</small>
       </div>
     </div>`;
 
-  state.plan[letter].forEach((exercise, index) => {
+  state.plan[id].forEach((exercise, index) => {
     html += renderExerciseEditor(exercise, index, letter);
   });
 
@@ -804,7 +938,7 @@ function renderExerciseEditor(exercise, index, letter) {
       `<textarea class="field-text" data-field="t" data-index="${index}" placeholder="Uma dica curta (opcional)">${escapeHtml(exercise.t || '')}</textarea>`);
     html += renderSection('ed-alts:' + id, `Alternativas (${exercise.a.length})`, renderAlternativesEditor(exercise, index));
 
-    const removeKey = letter + ':' + index;
+    const removeKey = editingTreino + ':' + index;
     const confirming = confirmingRemove === removeKey;
     html += `
       <div class="spacer-small"></div>
@@ -830,6 +964,87 @@ function renderAlternativesEditor(exercise, index) {
   return html;
 }
 
+/* ---------- Configurar treino e editar ficha ---------- */
+
+function renderTreinoEdit() {
+  const id = editingTreino;
+  const treino = state.treinos[id];
+  if (!treino) return renderHome();   // o treino não existe mais
+
+  const current = state.fichas.find(ficha => ficha.treinos.includes(id));
+  const options = ['<option value="">Sem ficha</option>'].concat(state.fichas.map(ficha =>
+    `<option value="${escapeHtml(ficha.id)}"${current && current.id === ficha.id ? ' selected' : ''}>${escapeHtml(ficha.nome)}</option>`)).join('');
+  const swatches = COLOR_KEYS.map((colorKey, index) =>
+    `<button class="swatch workout-${colorKey}${treino.cor === index ? ' selected' : ''}" data-action="set-color" data-value="${index}" aria-label="Cor ${index + 1}" aria-pressed="${treino.cor === index}"></button>`).join('');
+  const confirming = confirmingDelete === 'treino:' + id;
+  const count = state.plan[id].length;
+
+  return `
+    <div class="header">
+      <button data-action="home" aria-label="Início">←</button>
+      <div>
+        <h1>Configurar treino</h1>
+        <small>${count} ${count === 1 ? 'exercício' : 'exercícios'}</small>
+      </div>
+    </div>
+    <div class="card workout-${workoutColorKey(id)}">
+      <label>Nome<input data-field="tn" value="${escapeHtml(treino.nome)}"></label>
+      <div class="spacer-small"></div>
+      <label>Descrição (opcional)<input data-field="td" value="${escapeHtml(treino.desc)}" placeholder="Ex.: Pernas e core"></label>
+      <div class="spacer-small"></div>
+      <label>Ficha<select data-field="tf">${options}</select></label>
+      <div class="spacer-small"></div>
+      <small>Cor</small>
+      <div class="swatches">${swatches}</div>
+    </div>
+    <button class="btn-full" data-action="edit" data-value="${escapeHtml(id)}">Editar lista de exercícios</button>
+    <div class="spacer-small"></div>
+    <button class="btn-full${confirming ? ' primary' : ''}" style="--accent: var(--color-B)" data-action="delete-treino">${confirming ? 'Confirmar: remover este treino' : 'Remover treino'}</button>
+    <small>O histórico deste treino é mantido.</small>`;
+}
+
+function renderFichaEdit() {
+  const ficha = findFicha(editingFicha);
+  if (!ficha) return renderHome();   // a ficha não existe mais
+
+  const confirming = confirmingDelete === 'ficha:' + ficha.id;
+
+  let html = `
+    <div class="header">
+      <button data-action="home" aria-label="Início">←</button>
+      <div>
+        <h1>Editar ficha</h1>
+        <small>${ficha.treinos.length} ${ficha.treinos.length === 1 ? 'treino' : 'treinos'}</small>
+      </div>
+    </div>
+    <div class="card">
+      <label>Nome da ficha<input data-field="fn" value="${escapeHtml(ficha.nome)}"></label>
+    </div>
+    <h2>Treinos</h2>`;
+
+  ficha.treinos.forEach((id, index) => {
+    html += `
+      <div class="card workout-${workoutColorKey(id)}">
+        <div class="row row-flush">
+          <div class="exercise-name">${escapeHtml(workoutName(id))}</div>
+          <button class="btn-side" data-action="treino-edit" data-value="${escapeHtml(id)}">Configurar</button>
+        </div>
+        <div class="row">
+          <button data-action="move-treino" data-index="${index}" data-value="up" aria-label="Subir"${index === 0 ? ' disabled' : ''}>↑</button>
+          <button data-action="move-treino" data-index="${index}" data-value="down" aria-label="Descer"${index === ficha.treinos.length - 1 ? ' disabled' : ''}>↓</button>
+        </div>
+      </div>`;
+  });
+  if (!ficha.treinos.length) html += '<small>Nenhum treino nesta ficha ainda.</small>';
+
+  html += `
+    <button class="btn-full" data-action="add-treino" data-value="${escapeHtml(ficha.id)}">Adicionar treino</button>
+    <div class="spacer-small"></div>
+    <button class="btn-full${confirming ? ' primary' : ''}" style="--accent: var(--color-B)" data-action="delete-ficha">${confirming ? 'Confirmar: remover esta ficha' : 'Remover ficha'}</button>
+    <small>Os treinos não são apagados: ficam em "Sem ficha".</small>`;
+  return html;
+}
+
 /* ---------- Histórico: lista completa e edição de um treino ---------- */
 
 function renderHistoryList() {
@@ -845,8 +1060,8 @@ function renderHistoryList() {
   state.hist.slice(0, historyShown).forEach(workout => {
     const date = new Date(workout.d).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
     html += `
-      <div class="card workout-${workout.w}">
-        <b>Treino ${workout.w}</b> em ${date}, ${workout.m} min<br>
+      <div class="card workout-${historyColorKey(workout)}">
+        <b>${escapeHtml(historyName(workout))}</b> em ${date}, ${workout.m} min<br>
         <small>${formatHistoryLines(workout)}</small>
         <div class="row">
           <button data-action="history-edit" data-value="${workout.d}">Editar</button>
@@ -870,7 +1085,7 @@ function renderHistoryEdit() {
     <div class="header">
       <button data-action="history" aria-label="Voltar ao histórico">←</button>
       <div>
-        <h1>Editar treino ${workout.w}</h1>
+        <h1>Editar ${escapeHtml(historyName(workout))}</h1>
         <small>${date}</small>
       </div>
     </div>`;
@@ -878,7 +1093,7 @@ function renderHistoryEdit() {
   workout.it.forEach((item, index) => {
     const timed = item.u === 's';
     html += `
-      <div class="card workout-${workout.w}">
+      <div class="card workout-${historyColorKey(workout)}">
         <div class="exercise-name">${escapeHtml(item.n)}</div>
         <div class="row">
           <label>Carga (kg)<input type="number" inputmode="decimal" step="any" min="0" data-field="hkg" data-index="${index}" value="${item.kg || 0}"></label>
@@ -899,12 +1114,16 @@ function renderHistoryEdit() {
 /* ---------- Escolhe a tela certa e desenha ---------- */
 
 function render() {
-  const showingWorkout = currentView === 'workout' && state.cur;
+  const showingWorkout = currentView === 'workout' && state.cur && state.plan[state.cur.w];
 
   if (showingWorkout) {
     $('#app').innerHTML = renderWorkout();
   } else if (currentView === 'edit') {
     $('#app').innerHTML = renderEdit();
+  } else if (currentView === 'treino-edit') {
+    $('#app').innerHTML = renderTreinoEdit();
+  } else if (currentView === 'ficha-edit') {
+    $('#app').innerHTML = renderFichaEdit();
   } else if (currentView === 'history') {
     $('#app').innerHTML = renderHistoryList();
   } else if (currentView === 'history-edit') {
@@ -1003,6 +1222,7 @@ function finishWorkout() {
   state.hist.unshift({
     d: now,
     w: session.w,
+    wn: workoutName(session.w),
     m: minutes,
     it: doneItems,
     cm: session.cm || '',
@@ -1013,7 +1233,7 @@ function finishWorkout() {
   state.cur = null;
   currentView = 'home';
   clearInterval(restInterval);
-  showToast(`Treino ${session.w} concluído e registrado`);
+  showToast(`${workoutName(session.w)} concluído e registrado`);
 }
 
 /** Aumenta ou diminui carga, séries ou repetições (direction = 1 ou -1). */
@@ -1034,8 +1254,8 @@ function findHistoryWorkout(d) {
 
 /** Exercício da lista cujo nome (ou o de uma alternativa) é `name`. */
 function findPlanExerciseByName(name) {
-  for (const letter of WORKOUT_LETTERS) {
-    const found = state.plan[letter].find(exercise =>
+  for (const id of Object.keys(state.plan)) {
+    const found = state.plan[id].find(exercise =>
       exercise.n === name || exercise.a.some(alt => alt.n === name));
     if (found) return found;
   }
@@ -1081,6 +1301,30 @@ function changeHistoryField(input) {
   syncLastFor(item.n);
 }
 
+/** Grava nome, descrição ou ficha do treino aberto nas configurações. */
+function changeTreinoField(input) {
+  const treino = state.treinos[editingTreino];
+  if (!treino) return;
+  const field = input.dataset.field;
+
+  if (field === 'tn') {
+    treino.nome = input.value.trim() || treino.nome;   // o nome não pode ficar vazio
+    input.value = treino.nome;
+  } else if (field === 'td') {
+    treino.desc = input.value.trim();
+  } else if (field === 'tf') {
+    moveWorkoutToFicha(editingTreino, input.value);
+  }
+}
+
+/** Grava o nome da ficha aberta. */
+function changeFichaField(input) {
+  const ficha = findFicha(editingFicha);
+  if (!ficha || input.dataset.field !== 'fn') return;
+  ficha.nome = input.value.trim() || ficha.nome;      // o nome não pode ficar vazio
+  input.value = ficha.nome;
+}
+
 function copyBackup() {
   const textarea = $('#backup-output');
   if (!textarea || !textarea.value) {
@@ -1103,8 +1347,7 @@ function importBackup() {
     const imported = JSON.parse($('#backup-input').value);
     if (!imported.plan || !imported.hist) throw new Error('backup inválido');
     imported.cur = null;
-    imported.last = imported.last || {};
-    state = imported;
+    state = normalizeState(imported);
     showToast('Backup restaurado');
   } catch (error) {
     showToast('Texto de backup inválido');
@@ -1112,10 +1355,10 @@ function importBackup() {
   }
 }
 
-/** Menu aberto? Os de "Como executar" ('how:...') já começam abertos; os demais, fechados. */
+/** Menu aberto? "Como executar" ('how:...') e as fichas ('ficha:...') já começam abertos; os demais, fechados. */
 function isPanelOpen(key) {
   const saved = openPanels[key];
-  return saved === undefined ? key.startsWith('how:') : saved;
+  return saved === undefined ? (key.startsWith('how:') || key.startsWith('ficha:')) : saved;
 }
 
 function togglePanel(key) {
@@ -1131,6 +1374,10 @@ const actions = {
   'start'({ value, session }) {
     if (session && session.w !== value) {
       showToast('Há um treino em andamento. Continue ou descarte.');
+      return false;
+    }
+    if (!session && !(state.plan[value] && state.plan[value].length)) {
+      showToast('Adicione exercícios a este treino antes de iniciar');
       return false;
     }
     if (!session) {
@@ -1207,7 +1454,7 @@ const actions = {
 
   // ----- edição da lista -----
   'edit'({ value }) {
-    editingLetter = value;
+    editingTreino = value;
     openPanels['menu:' + value] = false;
     currentView = 'edit';
   },
@@ -1219,7 +1466,7 @@ const actions = {
 
   'add-exercise'() {
     const id = 'x' + Date.now();
-    state.plan[editingLetter].push({
+    state.plan[editingTreino].push({
       id,
       n: 'Novo exercício',
       s: 3,
@@ -1234,25 +1481,106 @@ const actions = {
 
   // 1º toque pede confirmação; 2º toque remove
   'remove-exercise'({ index }) {
-    const key = editingLetter + ':' + index;
+    const key = editingTreino + ':' + index;
     if (confirmingRemove !== key) {
       confirmingRemove = key;
       return;
     }
     confirmingRemove = '';
-    state.plan[editingLetter].splice(+index, 1);
+    state.plan[editingTreino].splice(+index, 1);
   },
 
   'add-alt'({ index }) {
-    const exercise = state.plan[editingLetter][+index];
+    const exercise = state.plan[editingTreino][+index];
     if (!exercise) return;
     exercise.a.push({ n: 'Nova alternativa', d: '' });
     openPanels['ed-alts:' + exercise.id] = true;
   },
 
   'remove-alt'({ index, value }) {
-    const exercise = state.plan[editingLetter][+index];
+    const exercise = state.plan[editingTreino][+index];
     if (exercise) exercise.a.splice(+value, 1);
+  },
+
+  // ----- treinos e fichas -----
+  'add-ficha'() {
+    const id = 'f' + Date.now();
+    state.fichas.push({ id, nome: 'Nova ficha', treinos: [] });
+    editingFicha = id;
+    currentView = 'ficha-edit';
+  },
+
+  'ficha-edit'({ value }) {
+    editingFicha = value;
+    currentView = 'ficha-edit';
+  },
+
+  // cria um treino vazio dentro da ficha e abre as configurações para dar nome
+  'add-treino'({ value }) {
+    const ficha = findFicha(value);
+    if (!ficha) return false;
+    const id = 'w' + Date.now();
+    state.plan[id] = [];
+    state.treinos[id] = { nome: 'Novo treino', desc: '', cor: Object.keys(state.treinos).length % COLOR_KEYS.length };
+    ficha.treinos.push(id);
+    editingTreino = id;
+    currentView = 'treino-edit';
+  },
+
+  'treino-edit'({ value }) {
+    editingTreino = value;
+    openPanels['menu:' + value] = false;
+    currentView = 'treino-edit';
+  },
+
+  'set-color'({ value }) {
+    const treino = state.treinos[editingTreino];
+    if (treino) treino.cor = +value;
+  },
+
+  'move-treino'({ index, value }) {
+    const ficha = findFicha(editingFicha);
+    if (!ficha) return;
+    const from = +index;
+    const to = value === 'up' ? from - 1 : from + 1;
+    if (to < 0 || to >= ficha.treinos.length) return;
+    [ficha.treinos[from], ficha.treinos[to]] = [ficha.treinos[to], ficha.treinos[from]];
+  },
+
+  // Remove o treino (2º toque confirma). O histórico dele é mantido.
+  'delete-treino'() {
+    const id = editingTreino;
+    if (state.cur && state.cur.w === id) {
+      showToast('Há um treino em andamento. Conclua ou descarte antes de remover.');
+      return false;
+    }
+    if (confirmingDelete !== 'treino:' + id) {
+      confirmingDelete = 'treino:' + id;
+      return;
+    }
+    confirmingDelete = '';
+    delete state.plan[id];
+    delete state.treinos[id];
+    state.fichas.forEach(ficha => {
+      ficha.treinos = ficha.treinos.filter(item => item !== id);
+    });
+    editingTreino = '';
+    currentView = 'home';
+    showToast('Treino removido (o histórico foi mantido)');
+  },
+
+  // Remove a ficha (2º toque confirma). Os treinos dela ficam em "Sem ficha".
+  'delete-ficha'() {
+    const id = editingFicha;
+    if (confirmingDelete !== 'ficha:' + id) {
+      confirmingDelete = 'ficha:' + id;
+      return;
+    }
+    confirmingDelete = '';
+    state.fichas = state.fichas.filter(ficha => ficha.id !== id);
+    editingFicha = '';
+    currentView = 'home';
+    showToast('Ficha removida. Os treinos ficaram em "Sem ficha".');
   },
 
   // ----- histórico -----
@@ -1374,11 +1702,12 @@ document.addEventListener('click', event => {
 
   const { action, id, index, value, field } = button.dataset;
   const session = state.cur;
-  const exercise = session ? state.plan[session.w].find(item => item.id === id) : undefined;
+  const exercise = session ? (state.plan[session.w] || []).find(item => item.id === id) : undefined;
 
   if (action !== 'discard') confirmingDiscard = false;
   if (action !== 'history-delete') confirmingHistoryDelete = false;
   if (action !== 'remove-exercise') confirmingRemove = '';
+  if (action !== 'delete-treino' && action !== 'delete-ficha') confirmingDelete = '';
   if (action !== 'sync-use-remote' && action !== 'sync-keep-local') confirmingSync = '';
 
   const handler = actions[action];
@@ -1398,12 +1727,16 @@ document.addEventListener('change', event => {
   if (currentView === 'history-edit') {
     // edição de um treino do histórico
     changeHistoryField(input);
+  } else if (currentView === 'treino-edit') {
+    changeTreinoField(input);
+  } else if (currentView === 'ficha-edit') {
+    changeFichaField(input);
   } else if ((field === 'cm' || field === 'ck') && state.cur) {
     // cardio do treino em andamento
     state.cur[field] = input.value;
   } else if (currentView === 'edit') {
     // edição da lista de exercícios
-    const exercise = state.plan[editingLetter][input.dataset.index];
+    const exercise = state.plan[editingTreino][input.dataset.index];
     if (exercise) {
       if (field === 'an' || field === 'ad') {
         // nome ou descrição de uma alternativa

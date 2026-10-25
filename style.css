@@ -29,6 +29,9 @@
   --color-A: #1d4ed8;     /* treino A */
   --color-B: #c62828;     /* treino B */
   --color-C: #2e7d32;     /* treino C */
+  --color-D: #b45309;     /* cor D */
+  --color-E: #7e22ce;     /* cor E */
+  --color-F: #0e7490;     /* cor F */
   --ok: #1b7a3d;          /* verde de "meta batida" */
 
   color-scheme: light;
@@ -50,6 +53,9 @@
     --color-A: #6d9bff;
     --color-B: #ff7a73;
     --color-C: #5fd07a;
+    --color-D: #fbbf24;
+    --color-E: #c084fc;
+    --color-F: #22d3ee;
     --ok: #5fd07a;
     color-scheme: dark;
   }
@@ -66,6 +72,9 @@
   --color-A: #6d9bff;
   --color-B: #ff7a73;
   --color-C: #5fd07a;
+  --color-D: #fbbf24;
+  --color-E: #c084fc;
+  --color-F: #22d3ee;
   --ok: #5fd07a;
   color-scheme: dark;
 }
@@ -134,10 +143,13 @@ small,
   margin: 0 0 12px;
 }
 
-/* cada treino define a sua cor de destaque */
+/* cada treino define a sua cor de destaque (A a F; o treino escolhe uma nas configurações) */
 .workout-A { --accent: var(--color-A); }
 .workout-B { --accent: var(--color-B); }
 .workout-C { --accent: var(--color-C); }
+.workout-D { --accent: var(--color-D); }
+.workout-E { --accent: var(--color-E); }
+.workout-F { --accent: var(--color-F); }
 
 /* linha horizontal; os filhos dividem o espaço igualmente */
 .row {
@@ -243,6 +255,7 @@ textarea {
 }
 
 label {
+  display: block;
   flex: 1;
   color: var(--muted);
   font-size: 14px;
@@ -458,4 +471,35 @@ select {
 select:focus-visible {
   outline: 3px solid var(--accent, var(--color-A));
   outline-offset: 1px;
+}
+
+/* título de uma ficha na tela inicial (um menu maior que os demais) */
+.section-ficha > .section-toggle {
+  font: 700 21px "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  letter-spacing: 0.2px;
+  min-height: 50px;
+}
+
+.section-ficha > .section-body {
+  padding: 8px 0 2px;
+}
+
+/* escolha de cor do treino */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.swatch {
+  width: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--border);
+}
+
+.swatch.selected {
+  border-color: var(--text);
 }
