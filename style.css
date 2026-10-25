@@ -7,6 +7,7 @@
      4. Botões e campos
      5. Componentes do treino (stepper, dicas, sugestão...)
      6. Barra de descanso e aviso (toast)
+     7. Menus recolhíveis e campos de edição
    ========================================================= */
 
 
@@ -379,4 +380,82 @@ label {
   display: none; /* o JS mostra por alguns segundos */
   z-index: 9;
   max-width: 90%;
+}
+
+
+/* ---------------------------------------------------------
+   7. Menus recolhíveis e campos de edição
+   --------------------------------------------------------- */
+
+/* um menu: botão com o título e uma setinha; o conteúdo aparece embaixo */
+.section {
+  margin-top: 8px;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+}
+
+.section-body {
+  padding: 8px 4px 2px;
+  font-size: 15px;
+}
+
+/* lista de opções que abre ao tocar em ⋯ */
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.menu button {
+  text-align: left;
+}
+
+/* botão de largura fixa ao lado de um título (ex.: "Editar") */
+.row .btn-side {
+  flex: 0 0 92px;
+}
+
+/* campos de texto longos (como executar, dica) usam a fonte normal */
+textarea.field-text {
+  font: inherit;
+  min-height: 84px;
+  margin-top: 6px;
+}
+
+/* cada alternativa na edição */
+.alt-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.alt-editor textarea.field-text {
+  margin-top: 0;
+}
+
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 44px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+select:focus-visible {
+  outline: 3px solid var(--accent, var(--color-A));
+  outline-offset: 1px;
 }

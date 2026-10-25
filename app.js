@@ -352,7 +352,8 @@ let editingLetter = '';            // treino aberto na tela de edição
 let editingWorkoutD = null;        // data (d) do treino do histórico aberto para edição
 let historyShown = HISTORY_PAGE;   // quantos treinos a lista do histórico mostra agora
 let confirmingHistoryDelete = false; // 1º toque em "Apagar este treino" já foi dado
-let openPanels = {};               // painéis abertos: 'info:ID', 'alts:ID', 'backup'
+let confirmingRemove = '';         // 1º toque em "Remover exercício" já foi dado (guarda qual)
+let openPanels = {};               // menus/painéis abertos: 'info:ID', 'how:ID', 'ed:ID', 'menu:A', 'more', 'sync', 'backup'...
 let confirmingDiscard = false;     // true depois do 1º toque em "Descartar"
 let backupText = '';               // texto do backup gerado
 let restEndsAt = 0;                // horário (ms) em que o descanso termina
@@ -583,8 +584,12 @@ function renderHome() {
         <small>${DEFAULT_WORKOUTS[letter].title}, ${state.plan[letter].length} exercícios</small>
         <div class="row">
           <button class="primary" data-action="start" data-value="${letter}">Iniciar treino</button>
-          <button data-action="edit" data-value="${letter}">Editar lista</button>
+          <button class="icon-button" data-action="toggle-panel" data-value="menu:${letter}" aria-label="Mais opções do treino ${letter}" aria-expanded="${isPanelOpen('menu:' + letter)}">⋯</button>
         </div>
+        ${isPanelOpen('menu:' + letter) ? `
+        <div class="menu">
+          <button data-action="edit" data-value="${letter}">Editar lista de exercícios</button>
+        </div>` : ''}
       </div>`;
   });
 
@@ -600,22 +605,50 @@ function renderHome() {
     html += '<button class="btn-full" data-action="history">Ver e editar histórico</button>';
   }
 
-  // Sincronização
-  html += `
-    <h2>Nuvem</h2>
-    <button class="btn-full" data-action="toggle-sync">${openPanels.sync ? 'Fechar' : 'Sincronização'}</button>`;
-  if (openPanels.sync) html += renderSyncPanel();
-
-  // Backup
-  html += `
-    <h2>Backup</h2>
-    <button class="btn-full" data-action="toggle-backup">${openPanels.backup ? 'Fechar' : 'Backup e restauração'}</button>`;
-  if (openPanels.backup) html += renderBackupPanel();
+  // Mais: nuvem e backup num menu só
+  const more =
+    renderSection('sync', 'Nuvem e sincronização', renderSyncPanel()) +
+    renderSection('backup', 'Backup e restauração', renderBackupPanel());
+  html += '<div class="spacer"></div>' + renderSection('more', 'Mais', more);
 
   return html;
 }
 
 /* ---------- Tela do treino em andamento ---------- */
+
+/** Menu recolhível: botão com o título e, quando aberto, o conteúdo logo abaixo. */
+function renderSection(key, title, bodyHtml) {
+  const open = isPanelOpen(key);
+  return `
+    <div class="section">
+      <button class="section-toggle" data-action="toggle-panel" data-value="${escapeHtml(key)}" aria-expanded="${open}">
+        <span>${title}</span><span aria-hidden="true">${open ? '▾' : '▸'}</span>
+      </button>
+      ${open ? `<div class="section-body">${bodyHtml}</div>` : ''}
+    </div>`;
+}
+
+/** Informações do exercício (botão ℹ): um menu para cada informação. */
+function renderInfoPanel(exercise, entry) {
+  const id = exercise.id;
+  const alternative = entry.alt >= 0 ? exercise.a[entry.alt] : null;
+
+  // a alternativa escolhida tem só a descrição; o exercício original tem descrição, dica e alternativas
+  const how = alternative ? alternative.d : exercise.d;
+  const tip = alternative ? '' : exercise.t;
+  const others = alternative ? [] : exercise.a;
+
+  let html = '<div class="info-box">';
+  html += renderSection('how:' + id, 'Como executar', how ? escapeHtml(how) : '<small>Sem descrição.</small>');
+  if (tip) {
+    html += renderSection('tip:' + id, 'Dica', escapeHtml(tip));
+  }
+  if (others.length) {
+    const list = others.map(alt => `<b>${escapeHtml(alt.n)}</b><br>${escapeHtml(alt.d || '')}`).join('<br><br>');
+    html += renderSection('alt-info:' + id, `Alternativas (${others.length})`, list);
+  }
+  return html + '</div>';
+}
 
 function renderExerciseCard(exercise, letter) {
   const entry = getEntry(exercise);
@@ -623,14 +656,6 @@ function renderExerciseCard(exercise, letter) {
   const last = state.last[name];
   const isTimed = exercise.u === 's';
   const unitSuffix = isTimed ? ' s' : '';
-
-  // Texto do botão ℹ: a alternativa escolhida tem só a descrição; o original tem descrição + dica
-  let infoText;
-  if (entry.alt >= 0) {
-    infoText = escapeHtml(exercise.a[entry.alt].d);
-  } else {
-    infoText = escapeHtml(exercise.d) + (exercise.t ? `<br><b>Dica:</b> ${escapeHtml(exercise.t)}` : '');
-  }
 
   const lastText = last
     ? `Última vez: ${last.kg ? formatNumber(last.kg) + ' kg, ' : ''}${last.s}×${last.r}`
@@ -645,7 +670,7 @@ function renderExerciseCard(exercise, letter) {
       <small>Meta ${exercise.s}×${escapeHtml(exercise.r)}${unitSuffix}. ${lastText}</small>`;
 
   if (openPanels['info:' + exercise.id]) {
-    html += `<div class="info-box">${infoText}</div>`;
+    html += renderInfoPanel(exercise, entry);
   }
 
   if (!entry.skip) {
@@ -731,23 +756,77 @@ function renderEdit() {
       <button data-action="home" aria-label="Início">←</button>
       <div>
         <h1>Editar treino ${letter}</h1>
-        <small>Nome, séries e faixa de repetições</small>
+        <small>Toque em Editar para abrir um exercício</small>
       </div>
     </div>`;
 
   state.plan[letter].forEach((exercise, index) => {
-    html += `
-      <div class="card workout-${letter}">
-        <input data-field="n" data-index="${index}" value="${escapeHtml(exercise.n)}" aria-label="Nome">
-        <div class="row">
-          <label>Séries<input type="number" data-field="s" data-index="${index}" value="${exercise.s}" min="1"></label>
-          <label>Repetições<input data-field="r" data-index="${index}" value="${escapeHtml(exercise.r)}"></label>
-          <button class="btn-align-label" data-action="remove-exercise" data-index="${index}">Remover</button>
-        </div>
-      </div>`;
+    html += renderExerciseEditor(exercise, index, letter);
   });
 
   html += `<button class="primary btn-full" style="--accent: var(--color-${letter})" data-action="add-exercise">Adicionar exercício</button>`;
+  return html;
+}
+
+/** Cartão de um exercício na edição: recolhido mostra o resumo; aberto mostra todos os campos. */
+function renderExerciseEditor(exercise, index, letter) {
+  const id = exercise.id;
+  const open = isPanelOpen('ed:' + id);
+  const unitSuffix = exercise.u === 's' ? ' s' : '';
+
+  let html = `
+    <div class="card workout-${letter}">
+      <div class="row row-flush">
+        <div>
+          <div class="exercise-name">${escapeHtml(exercise.n)}</div>
+          <small>${exercise.s}×${escapeHtml(exercise.r)}${unitSuffix}</small>
+        </div>
+        <button class="btn-side" data-action="toggle-panel" data-value="ed:${escapeHtml(id)}" aria-expanded="${open}">${open ? 'Fechar' : 'Editar'}</button>
+      </div>`;
+
+  if (open) {
+    html += `
+      <input data-field="n" data-index="${index}" value="${escapeHtml(exercise.n)}" aria-label="Nome">
+      <div class="row">
+        <label>Séries<input type="number" inputmode="numeric" min="1" data-field="s" data-index="${index}" value="${exercise.s}"></label>
+        <label>Faixa (ex.: 8-12)<input data-field="r" data-index="${index}" value="${escapeHtml(exercise.r)}"></label>
+        <label>Medida
+          <select data-field="u" data-index="${index}">
+            <option value="rep"${exercise.u === 's' ? '' : ' selected'}>Repetições</option>
+            <option value="s"${exercise.u === 's' ? ' selected' : ''}>Segundos</option>
+          </select>
+        </label>
+      </div>`;
+
+    html += renderSection('ed-how:' + id, 'Como executar',
+      `<textarea class="field-text" data-field="d" data-index="${index}" placeholder="Passo a passo do movimento">${escapeHtml(exercise.d || '')}</textarea>`);
+    html += renderSection('ed-tip:' + id, 'Dica',
+      `<textarea class="field-text" data-field="t" data-index="${index}" placeholder="Uma dica curta (opcional)">${escapeHtml(exercise.t || '')}</textarea>`);
+    html += renderSection('ed-alts:' + id, `Alternativas (${exercise.a.length})`, renderAlternativesEditor(exercise, index));
+
+    const removeKey = letter + ':' + index;
+    const confirming = confirmingRemove === removeKey;
+    html += `
+      <div class="spacer-small"></div>
+      <button class="btn-full${confirming ? ' primary' : ''}" style="--accent: var(--color-B)" data-action="remove-exercise" data-index="${index}">
+        ${confirming ? 'Confirmar: remover exercício' : 'Remover exercício'}
+      </button>`;
+  }
+
+  return html + '</div>';
+}
+
+function renderAlternativesEditor(exercise, index) {
+  let html = '';
+  exercise.a.forEach((alt, altIndex) => {
+    html += `
+      <div class="alt-editor">
+        <input data-field="an" data-index="${index}" data-alt="${altIndex}" value="${escapeHtml(alt.n)}" aria-label="Nome da alternativa" placeholder="Nome da alternativa">
+        <textarea class="field-text" data-field="ad" data-index="${index}" data-alt="${altIndex}" placeholder="Como executar a alternativa">${escapeHtml(alt.d || '')}</textarea>
+        <button data-action="remove-alt" data-index="${index}" data-value="${altIndex}">Remover alternativa</button>
+      </div>`;
+  });
+  html += `<button class="btn-full" data-action="add-alt" data-index="${index}">Adicionar alternativa</button>`;
   return html;
 }
 
@@ -1033,8 +1112,14 @@ function importBackup() {
   }
 }
 
+/** Menu aberto? Os de "Como executar" ('how:...') já começam abertos; os demais, fechados. */
+function isPanelOpen(key) {
+  const saved = openPanels[key];
+  return saved === undefined ? key.startsWith('how:') : saved;
+}
+
 function togglePanel(key) {
-  openPanels[key] = !openPanels[key];
+  openPanels[key] = !isPanelOpen(key);
 }
 
 const actions = {
@@ -1123,12 +1208,19 @@ const actions = {
   // ----- edição da lista -----
   'edit'({ value }) {
     editingLetter = value;
+    openPanels['menu:' + value] = false;
     currentView = 'edit';
   },
 
+  // abre ou fecha qualquer menu recolhível (a chave vem em data-value)
+  'toggle-panel'({ value }) {
+    togglePanel(value);
+  },
+
   'add-exercise'() {
+    const id = 'x' + Date.now();
     state.plan[editingLetter].push({
-      id: 'x' + Date.now(),
+      id,
       n: 'Novo exercício',
       s: 3,
       r: '8-12',
@@ -1137,10 +1229,30 @@ const actions = {
       a: [],
       u: 'rep',
     });
+    openPanels['ed:' + id] = true;   // o novo exercício já aparece aberto para preencher
   },
 
+  // 1º toque pede confirmação; 2º toque remove
   'remove-exercise'({ index }) {
+    const key = editingLetter + ':' + index;
+    if (confirmingRemove !== key) {
+      confirmingRemove = key;
+      return;
+    }
+    confirmingRemove = '';
     state.plan[editingLetter].splice(+index, 1);
+  },
+
+  'add-alt'({ index }) {
+    const exercise = state.plan[editingLetter][+index];
+    if (!exercise) return;
+    exercise.a.push({ n: 'Nova alternativa', d: '' });
+    openPanels['ed-alts:' + exercise.id] = true;
+  },
+
+  'remove-alt'({ index, value }) {
+    const exercise = state.plan[editingLetter][+index];
+    if (exercise) exercise.a.splice(+value, 1);
   },
 
   // ----- histórico -----
@@ -1266,6 +1378,7 @@ document.addEventListener('click', event => {
 
   if (action !== 'discard') confirmingDiscard = false;
   if (action !== 'history-delete') confirmingHistoryDelete = false;
+  if (action !== 'remove-exercise') confirmingRemove = '';
   if (action !== 'sync-use-remote' && action !== 'sync-keep-local') confirmingSync = '';
 
   const handler = actions[action];
@@ -1292,7 +1405,13 @@ document.addEventListener('change', event => {
     // edição da lista de exercícios
     const exercise = state.plan[editingLetter][input.dataset.index];
     if (exercise) {
-      exercise[field] = field === 's' ? Math.max(1, +input.value || 3) : input.value;
+      if (field === 'an' || field === 'ad') {
+        // nome ou descrição de uma alternativa
+        const alternative = exercise.a[input.dataset.alt];
+        if (alternative) alternative[field === 'an' ? 'n' : 'd'] = input.value;
+      } else {
+        exercise[field] = field === 's' ? Math.max(1, +input.value || 3) : input.value;
+      }
     }
   }
   saveState();
