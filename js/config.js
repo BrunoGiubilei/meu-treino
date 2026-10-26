@@ -19,4 +19,5 @@ export const API_URL = 'https://api.bruno-treino.workers.dev';
 export const TOKEN_KEY = 'treino_token';        // token da API (fica só neste aparelho, fora do backup)
 export const SYNC_META_KEY = 'treino_sync';     // { rev, dirty } — controle da sincronização
 export const SAFETY_COPY_KEY = 'treino_copia_antes_sync'; // cópia local guardada antes de trocar pelos dados da nuvem
+export const THEME_KEY = 'treino_tema';          // 'auto' | 'light' | 'dark' (só deste aparelho, fora do backup e da nuvem)
 export const SYNC_DELAY_MS = 1500;              // espera depois da última mudança antes de enviar

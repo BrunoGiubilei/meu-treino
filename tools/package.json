@@ -1,0 +1,11 @@
+{
+  "name": "meu-treino-tools",
+  "private": true,
+  "type": "module",
+  "description": "Geradores do tema M3 (css/theme.css) e dos ícones (js/icons.js). Não faz parte do app publicado.",
+  "scripts": { "gerar": "node gerar.mjs" },
+  "devDependencies": {
+    "@material-design-icons/svg": "^0.14.0",
+    "@material/material-color-utilities": "0.3.0"
+  }
+}

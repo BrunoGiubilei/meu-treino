@@ -5,18 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Meu Treino</title>
 
+  <!-- Aplica o tema salvo (claro/escuro/auto) ANTES de desenhar, para a página não piscar.
+       A chave é a mesma de THEME_KEY em js/config.js. -->
+  <script>
+    try {
+      var savedTheme = localStorage.getItem('treino_tema');
+      if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+    } catch (error) { /* sem armazenamento: fica no automático */ }
+  </script>
+
   <!-- Suporte a PWA -->
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="theme-color" content="#fefbff">
 
-  <!-- Fontes e estilos -->
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Estilos: tema M3 (gerado) -> telas antigas -> casca nova -->
+  <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/shell.css">
 </head>
 <body>
-  <!-- Todas as telas (início, treino, edição) são desenhadas aqui pelo app.js -->
-  <div id="app"></div>
+  <button id="skip-link" class="skip-link" type="button">Pular para o conteúdo</button>
+
+  <!-- Menu lateral: rail (tablet) ou drawer permanente (desktop). Preenchido por js/shell.js -->
+  <nav id="side-nav" class="side-nav" aria-label="Navegação principal">
+    <div class="side-nav-head">Meu Treino</div>
+    <ul id="side-nav-list" class="side-nav-list"></ul>
+    <div class="side-nav-foot">Versão <span class="js-version">…</span></div>
+  </nav>
+
+  <div class="shell-main">
+    <header class="top-app-bar">
+      <div id="appbar-title" class="top-app-bar-title">Treinos</div>
+    </header>
+
+    <!-- Todas as telas são desenhadas aqui pelo js/views/render.js -->
+    <main id="app" tabindex="-1"></main>
+  </div>
+
+  <!-- Barra de navegação de baixo (celular). Preenchida por js/shell.js -->
+  <nav id="bottom-nav" class="nav-bar" aria-label="Navegação principal"></nav>
 
   <!-- Barra de descanso: aparece só durante um treino -->
   <div id="rest-bar" hidden>

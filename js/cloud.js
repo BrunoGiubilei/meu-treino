@@ -102,7 +102,7 @@ export function setSyncStatus(next) {
   const conflictChanged = (next === 'conflict') !== (cloud.status === 'conflict');
   if (next === 'auth' && cloud.status !== 'auth') showToast('A nuvem recusou o token');
   cloud.status = next;
-  if (conflictChanged && ui.currentView === 'home') renderScreen();
+  if (conflictChanged && (ui.currentView === 'home' || ui.currentView === 'cloud')) renderScreen();
   else updateSyncLabel();
 }
 

@@ -8,6 +8,17 @@ import { openPanels, ui } from './ui.js';
 
 export const $ = selector => document.querySelector(selector);
 
+// Telas que existem. Qualquer outro valor de ui.currentView cai na tela inicial.
+const KNOWN_VIEWS = ['home', 'workout', 'edit', 'treino-edit', 'ficha-edit', 'history', 'history-edit',
+  'cloud', 'backup', 'appearance'];
+
+/** Tela que realmente aparece agora (ex.: 'workout' sem treino em andamento mostra a inicial). */
+export function effectiveView() {
+  const view = ui.currentView;
+  if (view === 'workout') return state.cur && state.plan[state.cur.w] ? 'workout' : 'home';
+  return KNOWN_VIEWS.includes(view) ? view : 'home';
+}
+
 /** Protege textos que vão para dentro do HTML. */
 export function escapeHtml(value) {
   const replacements = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };

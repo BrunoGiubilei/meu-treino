@@ -1,7 +1,7 @@
 /* =========================================================
    Meu Treino — estilos
    Seções:
-     1. Cores e temas (claro / escuro)
+     1. Cores e temas (agora em css/theme.css)
      2. Base (página, títulos, texto)
      3. Cartões e linhas
      4. Botões e campos
@@ -13,71 +13,10 @@
 
 /* ---------------------------------------------------------
    1. Cores e temas
-   O tema escuro aparece duas vezes de propósito:
-   - dentro do @media: segue o tema do celular (modo "auto")
-   - em [data-theme="dark"]: força o escuro manualmente
-   Se mudar uma cor escura, altere nos dois lugares.
+   As cores (claro/escuro) agora vêm de css/theme.css, gerado por tools/gerar.mjs.
+   Os nomes abaixo (--bg, --card, --text...) continuam funcionando: eles apontam
+   para os papéis do Material Design 3 definidos lá.
    --------------------------------------------------------- */
-:root {
-  --bg: #e9ecef;          /* fundo da página */
-  --card: #ffffff;        /* fundo de cartões e botões */
-  --text: #12161b;        /* texto principal */
-  --muted: #5d6672;       /* texto secundário */
-  --border: #d3d8de;      /* bordas */
-  --surface-alt: #eef1f4; /* fundo de caixas de apoio (dica, sugestão) */
-  --on-accent: #ffffff;   /* texto sobre a cor de destaque */
-  --color-A: #1d4ed8;     /* treino A */
-  --color-B: #c62828;     /* treino B */
-  --color-C: #2e7d32;     /* treino C */
-  --color-D: #b45309;     /* cor D */
-  --color-E: #7e22ce;     /* cor E */
-  --color-F: #0e7490;     /* cor F */
-  --ok: #1b7a3d;          /* verde de "meta batida" */
-
-  color-scheme: light;
-  box-sizing: border-box;
-  /* respeita a área segura (notch / barra do celular) */
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f1113;
-    --card: #1a1d21;
-    --text: #eceff3;
-    --muted: #9aa3ae;
-    --border: #2c3137;
-    --surface-alt: #23272c;
-    --on-accent: #0f1113;
-    --color-A: #6d9bff;
-    --color-B: #ff7a73;
-    --color-C: #5fd07a;
-    --color-D: #fbbf24;
-    --color-E: #c084fc;
-    --color-F: #22d3ee;
-    --ok: #5fd07a;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg: #0f1113;
-  --card: #1a1d21;
-  --text: #eceff3;
-  --muted: #9aa3ae;
-  --border: #2c3137;
-  --surface-alt: #23272c;
-  --on-accent: #0f1113;
-  --color-A: #6d9bff;
-  --color-B: #ff7a73;
-  --color-C: #5fd07a;
-  --color-D: #fbbf24;
-  --color-E: #c084fc;
-  --color-F: #22d3ee;
-  --ok: #5fd07a;
-  color-scheme: dark;
-}
 
 
 /* ---------------------------------------------------------
@@ -88,24 +27,25 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.45 Barlow, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: var(--md-type-body-large);
 }
 
 h1,
 h2,
 .exercise-name {
-  font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-  letter-spacing: 0.2px;
+  font-family: var(--md-font);
+  font-weight: 500;
 }
 
 h1 {
-  font-size: 34px;
+  font-size: 28px;
   margin: 4px 0 0;
-  line-height: 1.05;
+  line-height: 1.2;
 }
 
 h2 {
   font-size: 22px;
+  line-height: 1.25;
   margin: 22px 0 8px;
 }
 
@@ -138,7 +78,7 @@ small,
   border: 1px solid var(--border);
   /* a faixa colorida da esquerda usa --accent (definido pelas classes workout-X) */
   border-left: 6px solid var(--accent, var(--border));
-  border-radius: 10px;
+  border-radius: var(--md-shape-md);
   padding: 12px 14px;
   margin: 0 0 12px;
 }
@@ -181,9 +121,9 @@ small,
 }
 
 .exercise-name {
-  font-size: 23px;
-  font-weight: 700;
-  line-height: 1.1;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 
@@ -192,13 +132,17 @@ small,
    --------------------------------------------------------- */
 button {
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-shape-full);
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 16px;
+}
+
+button:disabled {
+  opacity: 0.38;
 }
 
 button:focus-visible,
@@ -240,8 +184,8 @@ textarea {
   font: inherit;
   color: var(--text);
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-shape-sm);
   padding: 8px;
   min-height: 44px;
   box-sizing: border-box;
@@ -317,10 +261,10 @@ label {
 
 /* etiqueta "próximo" */
 .tag {
-  font: 600 13px Barlow, sans-serif;
+  font: var(--md-type-label-medium);
   background: var(--accent);
   color: var(--on-accent);
-  border-radius: 5px;
+  border-radius: var(--md-shape-sm);
   padding: 1px 7px;
   vertical-align: middle;
 }
@@ -377,7 +321,8 @@ label {
 
 #rest-timer {
   flex: 1.3;
-  font: 700 22px "Barlow Condensed", sans-serif;
+  font: 500 22px/28px var(--md-font);
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
@@ -460,8 +405,8 @@ select {
   font: inherit;
   color: var(--text);
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-shape-sm);
   padding: 8px;
   min-height: 44px;
   box-sizing: border-box;
@@ -475,8 +420,8 @@ select:focus-visible {
 
 /* título de uma ficha na tela inicial (um menu maior que os demais) */
 .section-ficha > .section-toggle {
-  font: 700 21px "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-  letter-spacing: 0.2px;
+  font: var(--md-type-title-large);
+  font-weight: 500;
   min-height: 50px;
 }
 

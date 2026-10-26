@@ -3,6 +3,7 @@
    ========================================================= */
 
 import { actions, changeFichaField, changeHistoryField, changeTreinoField } from './actions.js';
+import { syncHash } from './router.js';
 import { saveState, state } from './state.js';
 import { ui } from './ui.js';
 import { render } from './views/render.js';
@@ -29,6 +30,7 @@ export function bindEvents() {
 
     saveState();
     render();
+    syncHash();   // mudou de tela? o endereço (#/...) acompanha
   });
 
   // Campos de texto: guardam o valor quando o usuário termina de digitar

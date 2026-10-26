@@ -184,11 +184,5 @@ export function renderHome() {
     html += '<button class="btn-full" data-action="history">Ver e editar histórico</button>';
   }
 
-  // Mais: nuvem e backup num menu só
-  const more =
-    renderSection('sync', 'Nuvem e sincronização', renderSyncPanel()) +
-    renderSection('backup', 'Backup e restauração', renderBackupPanel());
-  html += '<div class="spacer"></div>' + renderSection('more', 'Mais', more);
-
   return html;
 }
