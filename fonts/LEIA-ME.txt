@@ -1,0 +1,3 @@
+Roboto (Google Fonts), subconjunto latino, pesos 400, 500 e 700.
+Licença: Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+Origem dos arquivos: pacote npm @fontsource/roboto.

@@ -6,6 +6,7 @@ import { adoptRemote, cloud, pushPending, saveSyncMeta, setToken, syncNow } from
 import { COLOR_KEYS, HISTORY_PAGE, HOLD_STEP_SECONDS, LOAD_STEP_KG, MAX_HISTORY, TOKEN_KEY } from './config.js';
 import { $, createEntry, displayName, findFicha, findHistoryWorkout, getEntry, moveWorkoutToFicha, repsLowerBound, repsUpperBound, showToast, togglePanel, workoutName } from './helpers.js';
 import { startRest } from './rest.js';
+import { setTheme } from './theme.js';
 import { normalizeState, setState, state } from './state.js';
 import { openPanels, ui } from './ui.js';
 
@@ -428,6 +429,11 @@ export const actions = {
 
   'import-backup'() {
     return importBackup();
+  },
+
+  // ----- aparência (o tema é só deste aparelho: não entra no state nem na nuvem) -----
+  'set-theme'({ value }) {
+    setTheme(value);
   },
 
   // ----- nuvem -----

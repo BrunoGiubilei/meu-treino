@@ -1,0 +1,397 @@
+/* =========================================================
+   Meu Treino — casca do app (Material Design 3)
+   Seções:
+     1. Medidas e utilitários
+     2. Barra superior e área de conteúdo
+     3. Itens de navegação (comuns)
+     4. Celular: barra de navegação embaixo (< 600 px)
+     5. Tablet: navigation rail (600–839 px)
+     6. Desktop: navigation drawer permanente (≥ 840 px)
+     7. Componentes M3 novos (botão segmentado)
+   Carregado DEPOIS do style.css, por isso pode ajustar o que ele define.
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   1. Medidas e utilitários
+   --------------------------------------------------------- */
+:root {
+  --appbar-h: 64px;
+  --navbar-h: 80px;
+  --nav-w: 0px;          /* largura do menu lateral (0 no celular) */
+}
+
+@media (min-width: 600px) {
+  :root { --nav-w: 80px; }
+}
+
+@media (min-width: 840px) {
+  :root { --nav-w: 300px; }
+}
+
+body {
+  margin: 0;
+}
+
+/* texto só para leitores de tela */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 100;
+  background: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  border: 0;
+}
+
+.skip-link:focus {
+  left: 8px;
+}
+
+.icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+
+/* ---------------------------------------------------------
+   2. Barra superior e área de conteúdo
+   --------------------------------------------------------- */
+.shell-main {
+  margin-left: var(--nav-w);
+  min-width: 0;
+}
+
+.top-app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: calc(var(--appbar-h) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}
+
+.top-app-bar-title {
+  font: var(--md-type-title-large);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* espaço embaixo: barra de navegação (celular) ou barra de descanso */
+#app {
+  padding-bottom: calc(var(--navbar-h) + 32px + env(safe-area-inset-bottom, 0px));
+}
+
+#app:focus {
+  outline: none;
+}
+
+body.in-workout #app {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 600px) {
+  #app {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* a barra de descanso não pode ficar por baixo do menu lateral */
+#rest-bar {
+  left: var(--nav-w);
+  z-index: 25;
+}
+
+#toast {
+  z-index: 40;
+  top: calc(var(--appbar-h) + 8px + env(safe-area-inset-top, 0px));
+}
+
+
+/* ---------------------------------------------------------
+   3. Itens de navegação (comuns à barra, ao rail e ao drawer)
+   --------------------------------------------------------- */
+.nav-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: none;
+  font: var(--md-type-label-medium);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item:focus-visible {
+  outline: none;
+}
+
+.nav-item:focus-visible .nav-indicator {
+  outline: 3px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.nav-indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 32px;
+  border-radius: var(--md-shape-lg);
+  overflow: hidden;
+  transition: background var(--md-motion-short) var(--md-motion-easing);
+}
+
+/* camada de estado: escurece/clareia ao passar o mouse e ao tocar */
+.nav-indicator::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity var(--md-motion-short) var(--md-motion-easing);
+}
+
+.nav-item:hover .nav-indicator::before {
+  opacity: var(--md-state-hover);
+}
+
+.nav-item:focus-visible .nav-indicator::before {
+  opacity: var(--md-state-focus);
+}
+
+.nav-item:active .nav-indicator::before {
+  opacity: var(--md-state-pressed);
+}
+
+.nav-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ícone vazado quando inativo, preenchido quando ativo */
+.icon-filled { display: none; }
+
+.nav-item[aria-current="page"] {
+  color: var(--md-sys-color-on-surface);
+}
+
+.nav-item[aria-current="page"] .nav-indicator {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.nav-item[aria-current="page"] .icon-filled { display: block; }
+.nav-item[aria-current="page"] .icon-outlined { display: none; }
+
+
+/* ---------------------------------------------------------
+   4. Celular: barra de navegação embaixo (< 600 px)
+   --------------------------------------------------------- */
+.nav-bar {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  box-sizing: border-box;
+  padding: 12px 8px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--md-sys-color-surface-container);
+}
+
+.nav-bar .nav-item {
+  flex: 1;
+}
+
+/* durante o treino a barra de descanso ocupa o rodapé */
+body.in-workout .nav-bar {
+  display: none;
+}
+
+.side-nav {
+  display: none;
+}
+
+
+/* ---------------------------------------------------------
+   5. Tablet: navigation rail (600–839 px)
+   --------------------------------------------------------- */
+@media (min-width: 600px) {
+  .nav-bar {
+    display: none;
+  }
+
+  .side-nav {
+    position: fixed;
+    z-index: 20;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: var(--nav-w);
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 0 16px;
+    background: var(--md-sys-color-surface-container-low);
+    overflow-y: auto;
+  }
+
+  .side-nav-head,
+  .side-nav-foot {
+    display: none;
+  }
+
+  .side-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .side-nav .nav-indicator {
+    width: 56px;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   6. Desktop: navigation drawer permanente (≥ 840 px)
+   --------------------------------------------------------- */
+@media (min-width: 840px) {
+  .side-nav {
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 12px;
+  }
+
+  .side-nav-head {
+    display: block;
+    padding: 18px 16px 18px;
+    font: var(--md-type-title-large);
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .side-nav-foot {
+    display: block;
+    margin-top: auto;
+    padding: 16px;
+    font: var(--md-type-body-small);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .side-nav-list {
+    gap: 0;
+  }
+
+  .side-nav .nav-item {
+    flex-direction: row;
+    gap: 12px;
+    height: 56px;
+    padding: 0 16px;
+    border-radius: var(--md-shape-xl);
+    font: var(--md-type-label-large);
+  }
+
+  /* no drawer, o "indicador" é o próprio item: o fundo vai para ele */
+  .side-nav .nav-indicator,
+  .side-nav .nav-item[aria-current="page"] .nav-indicator {
+    width: 24px;
+    height: 24px;
+    background: none;
+    color: inherit;
+    overflow: visible;
+  }
+
+  .side-nav .nav-indicator::before {
+    display: none;
+  }
+
+  .side-nav .nav-item::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity var(--md-motion-short) var(--md-motion-easing);
+  }
+
+  .side-nav .nav-item:hover::before { opacity: var(--md-state-hover); }
+  .side-nav .nav-item:focus-visible::before { opacity: var(--md-state-focus); }
+  .side-nav .nav-item:active::before { opacity: var(--md-state-pressed); }
+
+  .side-nav .nav-item:focus-visible {
+    outline: 3px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+  }
+
+  .side-nav .nav-item[aria-current="page"] {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+}
+
+
+/* ---------------------------------------------------------
+   7. Componentes M3 novos: botão segmentado (escolha do tema)
+   --------------------------------------------------------- */
+.segmented {
+  display: flex;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-shape-full);
+  overflow: hidden;
+}
+
+.segmented-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-type-label-large);
+}
+
+.segmented-button + .segmented-button {
+  border-left: 1px solid var(--md-sys-color-outline);
+}
+
+.segmented-button .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.segmented-button.selected {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
