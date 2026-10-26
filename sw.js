@@ -10,7 +10,7 @@
    desktop). O app lê o CACHE_NAME deste arquivo — não mude o nome da constante
    nem o formato da linha, senão a versão deixa de aparecer.
    ========================================================= */
-const CACHE_NAME = 'treino-v8';
+const CACHE_NAME = 'treino-v9';
 
 const ASSETS = [
   './',
