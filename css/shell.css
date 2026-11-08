@@ -395,3 +395,56 @@ body.in-workout .nav-bar {
   background: var(--md-sys-color-secondary-container);
   color: var(--md-sys-color-on-secondary-container);
 }
+
+/* ---------------------------------------------------------
+   Treino em andamento: campo de carga e passo da carga
+   --------------------------------------------------------- */
+.kg-input {
+  width: 84px;
+  min-height: 44px;
+  padding: 0 8px;
+  text-align: center;
+  font: 500 19px/24px var(--md-font);
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: 12px;
+}
+
+.load-step {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.load-step small {
+  flex: 1 1 100%;
+  color: var(--muted);
+}
+
+.load-step button {
+  flex: 1;
+  min-width: 56px;
+}
+
+.load-step .selected {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-color: transparent;
+}
+
+/* barra de descanso com 5 tempos: botões mais estreitos */
+#rest-bar {
+  gap: 6px;
+}
+
+#rest-bar button {
+  min-width: 0;
+  padding: 0 4px;
+}
+
+#rest-bar button[data-action="stop-timer"] {
+  flex: 0 0 44px;
+}

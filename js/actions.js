@@ -3,7 +3,7 @@
    ========================================================= */
 
 import { adoptRemote, cloud, pushPending, saveSyncMeta, setToken, syncNow } from './cloud.js';
-import { COLOR_KEYS, HISTORY_PAGE, HOLD_STEP_SECONDS, LOAD_STEP_KG, MAX_HISTORY, TOKEN_KEY } from './config.js';
+import { COLOR_KEYS, HISTORY_PAGE, HOLD_STEP_SECONDS, LOAD_STEP_KEY, LOAD_STEPS, MAX_HISTORY, TOKEN_KEY } from './config.js';
 import { $, createEntry, displayName, findFicha, findHistoryWorkout, getEntry, moveWorkoutToFicha, repsLowerBound, repsUpperBound, showToast, togglePanel, workoutName } from './helpers.js';
 import { startRest, stopRest } from './rest.js';
 import { setTheme } from './theme.js';
@@ -53,7 +53,7 @@ export function finishWorkout() {
 export function changeValue(exercise, field, direction) {
   const entry = getEntry(exercise);
   let step = 1;
-  if (field === 'kg') step = LOAD_STEP_KG;
+  if (field === 'kg') step = ui.loadStep;
   else if (field === 'r' && exercise.u === 's') step = HOLD_STEP_SECONDS;
 
   // toFixed evita erros de ponto flutuante (ex.: 0.1 + 0.2); nunca fica abaixo de zero
@@ -61,6 +61,17 @@ export function changeValue(exercise, field, direction) {
 
   // séries feitas (ds) nunca passam do total de séries do exercício
   if (entry.ds > entry.s) entry.ds = entry.s;
+}
+
+/** Carga digitada direto no campo do exercício (aceita vírgula ou ponto). */
+export function changeLoadField(input) {
+  const session = state.cur;
+  const exercise = session ? (state.plan[session.w] || []).find(item => item.id === input.dataset.id) : undefined;
+  if (!exercise) return;
+
+  const value = parseFloat(String(input.value).replace(',', '.'));
+  if (!Number.isFinite(value) || value < 0) return;   // valor inválido: mantém o anterior
+  getEntry(exercise).kg = Math.min(Math.round(value * 100) / 100, 999);
 }
 
 /** Exercício da lista cujo nome (ou o de uma alternativa) é `name`. */
@@ -231,9 +242,17 @@ export const actions = {
   },
 
   // aplica a carga sugerida (última carga + passo) e volta às repetições iniciais
+  // escolhe o passo dos botões +/− de carga (vale para todos os exercícios, só neste aparelho)
+  'set-load-step'({ value }) {
+    const step = +value;
+    if (!LOAD_STEPS.includes(step)) return false;
+    ui.loadStep = step;
+    try { localStorage.setItem(LOAD_STEP_KEY, String(step)); } catch (error) { /* ignora */ }
+  },
+
   'apply-suggestion'({ exercise }) {
     const entry = getEntry(exercise);
-    entry.kg = state.last[displayName(exercise, entry)].kg + LOAD_STEP_KG;
+    entry.kg = +(state.last[displayName(exercise, entry)].kg + ui.loadStep).toFixed(2);
     entry.r = repsLowerBound(exercise);
   },
 

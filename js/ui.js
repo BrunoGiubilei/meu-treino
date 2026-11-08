@@ -2,7 +2,17 @@
    Meu Treino — Estado só da tela (não é salvo).
    ========================================================= */
 
-import { HISTORY_PAGE } from './config.js';
+import { HISTORY_PAGE, LOAD_STEP_KEY, LOAD_STEP_KG, LOAD_STEPS } from './config.js';
+
+function readLoadStep() {
+  try {
+    const saved = +localStorage.getItem(LOAD_STEP_KEY);
+    if (LOAD_STEPS.includes(saved)) return saved;
+  } catch (error) {
+    // armazenamento bloqueado: usa o padrão
+  }
+  return LOAD_STEP_KG;
+}
 
 // Estado só da tela (não é salvo). Fica num objeto porque módulos não podem
 // reatribuir variáveis importadas; quem muda a tela escreve em ui.<campo>.
@@ -17,6 +27,7 @@ export const ui = {
   confirmingRemove: '',         // 1º toque em "Remover exercício" já foi dado (guarda qual)
   confirmingDiscard: false,     // true depois do 1º toque em "Descartar"
   backupText: '',               // texto do backup gerado
+  loadStep: readLoadStep(),     // passo atual dos botões +/− de carga (kg)
   restEndsAt: 0,                // horário (ms) em que o descanso termina
   restInterval: null,           // intervalo que atualiza o cronômetro
   toastTimeout: null,

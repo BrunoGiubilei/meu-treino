@@ -2,10 +2,10 @@
    Meu Treino — Tela do treino em andamento.
    ========================================================= */
 
-import { LOAD_STEP_KG } from '../config.js';
+import { LOAD_STEPS } from '../config.js';
 import { displayName, escapeHtml, formatNumber, getEntry, repsUpperBound, workoutColorKey, workoutName } from '../helpers.js';
 import { state } from '../state.js';
-import { openPanels } from '../ui.js';
+import { openPanels, ui } from '../ui.js';
 import { renderSection, renderStepper } from './components.js';
 
 /** Informações do exercício (botão ℹ): um menu para cada informação. */
@@ -57,11 +57,17 @@ export function renderExerciseCard(exercise, letter) {
     // Sugestão de aumento: bateu o topo da faixa na última vez e a carga ainda é a mesma
     if (last && last.up && !isTimed && entry.kg === last.kg) {
       html += `
-        <div class="suggestion">Você bateu o topo da faixa. Tente ${formatNumber(last.kg + LOAD_STEP_KG)} kg.<button data-action="apply-suggestion" data-id="${exercise.id}">Aplicar</button></div>`;
+        <div class="suggestion">Você bateu o topo da faixa. Tente ${formatNumber(+(last.kg + ui.loadStep).toFixed(2))} kg.<button data-action="apply-suggestion" data-id="${exercise.id}">Aplicar</button></div>`;
     }
 
     if (!isTimed) {
-      html += renderStepper('Carga', exercise.id, 'kg', formatNumber(entry.kg) + ' kg');
+      html += `
+    <div class="stepper">
+      <span>Carga (kg)</span>
+      <button data-action="decrease" data-id="${exercise.id}" data-field="kg" aria-label="Diminuir ${formatNumber(ui.loadStep)} kg">−</button>
+      <input class="kg-input" type="text" inputmode="decimal" autocomplete="off" data-field="kg" data-id="${exercise.id}" value="${formatNumber(entry.kg)}" aria-label="Carga em kg">
+      <button data-action="increase" data-id="${exercise.id}" data-field="kg" aria-label="Aumentar ${formatNumber(ui.loadStep)} kg">+</button>
+    </div>`;
     }
     html += renderStepper('Séries', exercise.id, 's', entry.s);
     html += renderStepper('Séries feitas', exercise.id, 'ds', `${Math.min(entry.ds || 0, entry.s)}/${entry.s}`);
@@ -109,6 +115,13 @@ export function renderWorkout() {
         <h1>${escapeHtml(workoutName(id))}</h1>
         ${description ? `<small>${escapeHtml(description)}</small>` : ''}
       </div>
+    </div>`;
+
+  // passo dos botões +/− de carga
+  html += `
+    <div class="load-step" role="group" aria-label="Passo da carga">
+      <small>Passo da carga (kg)</small>
+      ${LOAD_STEPS.map(step => `<button class="${step === ui.loadStep ? 'selected' : ''}" aria-pressed="${step === ui.loadStep}" data-action="set-load-step" data-value="${step}">${formatNumber(step)}</button>`).join('')}
     </div>`;
 
   state.plan[id].forEach(exercise => {

@@ -2,7 +2,7 @@
    Meu Treino — Ouvintes de clique e de mudança de campos (um só de cada, no document).
    ========================================================= */
 
-import { actions, changeFichaField, changeHistoryField, changeTreinoField } from './actions.js';
+import { actions, changeFichaField, changeHistoryField, changeLoadField, changeTreinoField } from './actions.js';
 import { syncHash } from './router.js';
 import { saveState, state } from './state.js';
 import { ui } from './ui.js';
@@ -46,6 +46,12 @@ export function bindEvents() {
       changeTreinoField(input);
     } else if (ui.currentView === 'ficha-edit') {
       changeFichaField(input);
+    } else if (field === 'kg' && ui.currentView === 'workout') {
+      // carga digitada no cartão do exercício
+      changeLoadField(input);
+      saveState();
+      render();   // atualiza sugestão de carga e o valor mostrado
+      return;
     } else if ((field === 'cm' || field === 'ck') && state.cur) {
       // cardio do treino em andamento
       state.cur[field] = input.value;
