@@ -10,7 +10,7 @@
    desktop). O app lê o CACHE_NAME deste arquivo — não mude o nome da constante
    nem o formato da linha, senão a versão deixa de aparecer.
    ========================================================= */
-const CACHE_NAME = 'treino-v9';
+const CACHE_NAME = 'treino-v10';
 
 const ASSETS = [
   './',
@@ -90,5 +90,18 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((response) => response || fetch(event.request))
+  );
+});
+
+// Toque na notificação "Descanso terminado": volta para o app aberto (ou abre ele)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if ('focus' in client) return client.focus();
+      }
+      return self.clients.openWindow('./');
+    })
   );
 });

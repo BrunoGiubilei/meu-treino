@@ -5,7 +5,7 @@
 import { adoptRemote, cloud, pushPending, saveSyncMeta, setToken, syncNow } from './cloud.js';
 import { COLOR_KEYS, HISTORY_PAGE, HOLD_STEP_SECONDS, LOAD_STEP_KG, MAX_HISTORY, TOKEN_KEY } from './config.js';
 import { $, createEntry, displayName, findFicha, findHistoryWorkout, getEntry, moveWorkoutToFicha, repsLowerBound, repsUpperBound, showToast, togglePanel, workoutName } from './helpers.js';
-import { startRest } from './rest.js';
+import { startRest, stopRest } from './rest.js';
 import { setTheme } from './theme.js';
 import { normalizeState, setState, state } from './state.js';
 import { openPanels, ui } from './ui.js';
@@ -45,7 +45,7 @@ export function finishWorkout() {
 
   state.cur = null;
   ui.currentView = 'home';
-  clearInterval(ui.restInterval);
+  stopRest();
   showToast(`${workoutName(session.w)} concluído e registrado`);
 }
 
@@ -245,8 +245,7 @@ export const actions = {
   },
 
   'stop-timer'() {
-    clearInterval(ui.restInterval);
-    $('#rest-timer').textContent = 'Descanso';
+    stopRest();
     return false;
   },
 

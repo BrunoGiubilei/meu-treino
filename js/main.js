@@ -4,6 +4,7 @@
 
 import { markChanged, setRenderer, syncNow } from './cloud.js';
 import { bindEvents } from './events.js';
+import { refreshRest, restoreRest } from './rest.js';
 import { startRouter } from './router.js';
 import { mountShell } from './shell.js';
 import { onStateChanged } from './state.js';
@@ -21,11 +22,15 @@ startRouter(render);   // lê o endereço de abertura (#/...) e acompanha voltar
 
 render();
 loadVersions();       // mostra a versão do sw.js na página Aparência
+restoreRest();        // retoma o descanso se o app foi fechado/descartado no meio dele
 syncNow();
 
 window.addEventListener('online', syncNow);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') syncNow();
+  if (document.visibilityState === 'visible') {
+    refreshRest();
+    syncNow();
+  }
 });
 
 if ('serviceWorker' in navigator) {
