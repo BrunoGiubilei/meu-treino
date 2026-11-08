@@ -64,6 +64,7 @@ export function renderExerciseCard(exercise, letter) {
       html += renderStepper('Carga', exercise.id, 'kg', formatNumber(entry.kg) + ' kg');
     }
     html += renderStepper('Séries', exercise.id, 's', entry.s);
+    html += renderStepper('Séries feitas', exercise.id, 'ds', `${Math.min(entry.ds || 0, entry.s)}/${entry.s}`);
     html += renderStepper(isTimed ? 'Tempo' : 'Repetições', exercise.id, 'r', entry.r + unitSuffix);
 
     if (!isTimed && entry.kg > 0 && entry.r >= repsUpperBound(exercise)) {

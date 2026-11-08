@@ -4,10 +4,10 @@
 
 import { markChanged, setRenderer, syncNow } from './cloud.js';
 import { bindEvents } from './events.js';
-import { refreshRest, restoreRest } from './rest.js';
+import { refreshRest, restoreRest, setRestDoneHandler } from './rest.js';
 import { startRouter } from './router.js';
 import { mountShell } from './shell.js';
-import { onStateChanged } from './state.js';
+import { onStateChanged, saveState } from './state.js';
 import { initTheme } from './theme.js';
 import { loadVersions } from './version.js';
 import { render } from './views/render.js';
@@ -22,6 +22,10 @@ startRouter(render);   // lê o endereço de abertura (#/...) e acompanha voltar
 
 render();
 loadVersions();       // mostra a versão do sw.js na página Aparência
+setRestDoneHandler(() => {   // o descanso contou uma série: grava e redesenha
+  saveState();
+  render();
+});
 restoreRest();        // retoma o descanso se o app foi fechado/descartado no meio dele
 syncNow();
 

@@ -12,7 +12,8 @@
       que é o que faz o celular vibrar com a tela bloqueada.
    ========================================================= */
 
-import { $ } from './helpers.js';
+import { $, displayName, getEntry } from './helpers.js';
+import { state } from './state.js';
 import { ui } from './ui.js';
 
 const REST_KEY = 'treino_rest_end';        // horário final guardado (sobrevive se o Android descartar a página)
@@ -20,6 +21,40 @@ const REST_STALE_MS = 10 * 60 * 1000;      // descanso terminado há mais que is
 const VIBRATION = [300, 100, 300, 100, 300];
 
 let counting = false;   // true enquanto há um descanso esperando para avisar
+let target = null;      // { id, w }: exercício que ganha uma série feita quando este descanso terminar
+let onSetDone = () => {};   // quem desenha a tela avisa isto (ligado em main.js)
+
+export function setRestDoneHandler(handler) {
+  onSetDone = handler;
+}
+
+/** Exercício atual: o primeiro (não pulado) que ainda não completou todas as séries. */
+function currentTarget() {
+  const session = state.cur;
+  if (!session || !state.plan[session.w]) return null;
+  for (const exercise of state.plan[session.w]) {
+    const entry = getEntry(exercise);
+    if (!entry.skip && (entry.ds || 0) < entry.s) return { id: exercise.id, w: session.w };
+  }
+  return null;
+}
+
+/** Conta uma série feita no exercício do descanso. Devolve o texto do aviso, ou null se não houver exercício. */
+function completeSet(from) {
+  if (!from || !state.cur || state.cur.w !== from.w) return null;
+  const exercise = (state.plan[from.w] || []).find(item => item.id === from.id);
+  if (!exercise) return null;
+
+  const entry = getEntry(exercise);
+  if (entry.skip) return null;
+  entry.ds = Math.min((entry.ds || 0) + 1, entry.s);
+  onSetDone();
+
+  const name = displayName(exercise, entry);
+  return entry.ds >= entry.s
+    ? `${name}: ${entry.s}/${entry.s}, exercício concluído`
+    : `${name}: ${entry.ds}/${entry.s} concluídas`;
+}
 let audio = null;       // <audio> único: toca o silêncio e depois o bipe
 const urls = {};        // endereços (blob:) dos dois áudios gerados
 
@@ -82,7 +117,10 @@ function releaseAudio() {
 export function startRest(seconds) {
   ui.restEndsAt = Date.now() + seconds * 1000;
   counting = true;
-  try { localStorage.setItem(REST_KEY, String(ui.restEndsAt)); } catch (error) { /* ignora */ }
+  target = currentTarget();
+  try {
+    localStorage.setItem(REST_KEY, JSON.stringify({ end: ui.restEndsAt, target }));
+  } catch (error) { /* ignora */ }
 
   askNotificationPermission();
   try {
@@ -103,6 +141,7 @@ export function startRest(seconds) {
 
 export function stopRest() {
   counting = false;
+  target = null;
   clearInterval(ui.restInterval);
   try { localStorage.removeItem(REST_KEY); } catch (error) { /* ignora */ }
   releaseAudio();
@@ -117,20 +156,30 @@ function finishRest() {
   const label = $('#rest-timer');
   if (label) label.textContent = 'Pronto!';
 
+  const message = completeSet(target);   // o descanso terminou: a série conta como feita
+  target = null;
+
   playAlertSound();
   vibrate();
-  if (document.visibilityState !== 'visible') notifyRestDone();
+  if (document.visibilityState !== 'visible') notifyRestDone(message);
 }
 
 /** Ao reabrir o app (ou se o Android descartou a página): retoma ou mostra "Pronto!". */
 export function restoreRest() {
   let saved = 0;
-  try { saved = +localStorage.getItem(REST_KEY) || 0; } catch (error) { /* ignora */ }
+  let savedTarget = null;
+  try {
+    const raw = localStorage.getItem(REST_KEY);
+    const data = raw && raw.startsWith('{') ? JSON.parse(raw) : { end: +raw || 0 };
+    saved = +data.end || 0;
+    savedTarget = data.target || null;
+  } catch (error) { /* ignora */ }
   if (!saved) return;
 
   const now = Date.now();
   if (saved > now) {
     ui.restEndsAt = saved;
+    target = savedTarget;
     counting = true;
     clearInterval(ui.restInterval);
     ui.restInterval = setInterval(updateRestTimer, 250);
@@ -138,7 +187,10 @@ export function restoreRest() {
   } else {
     try { localStorage.removeItem(REST_KEY); } catch (error) { /* ignora */ }
     const label = $('#rest-timer');
-    if (label && now - saved < REST_STALE_MS) label.textContent = 'Pronto!';
+    if (label && now - saved < REST_STALE_MS) {
+      label.textContent = 'Pronto!';
+      completeSet(savedTarget);   // terminou com o app fechado: a série conta mesmo assim
+    }
   }
 }
 
@@ -157,13 +209,13 @@ function askNotificationPermission() {
   }
 }
 
-function notifyRestDone() {
+function notifyRestDone(message) {
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.ready.then(registration =>
       registration.showNotification('Descanso terminado', {
-        body: 'Hora da próxima série.',
+        body: message || 'Hora da próxima série.',
         icon: 'icon-192.png',
         tag: 'descanso',
         renotify: true,

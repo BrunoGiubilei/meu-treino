@@ -57,7 +57,10 @@ export function changeValue(exercise, field, direction) {
   else if (field === 'r' && exercise.u === 's') step = HOLD_STEP_SECONDS;
 
   // toFixed evita erros de ponto flutuante (ex.: 0.1 + 0.2); nunca fica abaixo de zero
-  entry[field] = Math.max(0, +(entry[field] + direction * step).toFixed(1));
+  entry[field] = Math.max(0, +((entry[field] || 0) + direction * step).toFixed(1));
+
+  // séries feitas (ds) nunca passam do total de séries do exercício
+  if (entry.ds > entry.s) entry.ds = entry.s;
 }
 
 /** Exercício da lista cujo nome (ou o de uma alternativa) é `name`. */
