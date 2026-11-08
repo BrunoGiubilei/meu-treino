@@ -202,19 +202,29 @@ export const actions = {
     ui.currentView = 'workout';
   },
 
-  // 1º toque pede confirmação; 2º toque descarta
+  // abre o diálogo de confirmação; o descarte acontece em 'discard-confirm'
   'discard'() {
-    if (ui.confirmingDiscard) {
-      state.cur = null;
-      ui.confirmingDiscard = false;
-    } else {
-      ui.confirmingDiscard = true;
-    }
+    ui.dialog = 'discard';
+  },
+
+  'discard-confirm'() {
+    state.cur = null;
+    ui.dialog = '';
+    stopRest();
+  },
+
+  'overlay-close'() {
+    ui.sheet = null;
+    ui.dialog = '';
   },
 
   // ----- treino em andamento -----
   'info'({ id }) {
-    togglePanel('info:' + id);
+    ui.sheet = { id, tab: 'how' };
+  },
+
+  'sheet-tab'({ value }) {
+    if (ui.sheet) ui.sheet.tab = value;
   },
 
   'toggle-alternatives'({ id }) {
@@ -226,6 +236,7 @@ export const actions = {
     const wasSkipped = entry.skip;
     Object.assign(entry, createEntry(exercise, +value), { skip: wasSkipped });
     openPanels['alts:' + id] = false;
+    ui.sheet = null;   // se escolheu pela folha de informações, ela fecha
   },
 
   'toggle-skip'({ exercise }) {

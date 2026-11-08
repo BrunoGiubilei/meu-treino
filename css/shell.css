@@ -448,3 +448,177 @@ body.in-workout .nav-bar {
 #rest-bar button[data-action="stop-timer"] {
   flex: 0 0 44px;
 }
+
+
+/* ---------------------------------------------------------
+   Treino em andamento: cabeçalho fixo com o tempo
+   --------------------------------------------------------- */
+.workout-header {
+  position: sticky;
+  top: calc(var(--appbar-h) + env(safe-area-inset-top, 0px));
+  z-index: 15;
+  margin: 0 0 8px;
+  padding: 6px 0;
+  background: var(--bg);
+}
+
+.workout-header-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.workout-header-title h1 {
+  margin: 0;
+  font: var(--md-type-title-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elapsed {
+  font: 500 20px/24px var(--md-font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--md-sys-color-secondary-container);
+}
+
+/* ---------------------------------------------------------
+   Folhas e diálogos (<dialog id="overlay">)
+   --------------------------------------------------------- */
+.overlay {
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  background: var(--md-sys-color-surface-container-high);
+  max-height: 85vh;
+  overflow: auto;
+}
+
+.overlay::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.overlay.confirm {
+  width: min(92vw, 360px);
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.overlay h2 {
+  margin: 0 0 12px;
+  font: var(--md-type-headline-small);
+}
+
+.overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.overlay .danger {
+  background: var(--md-sys-color-error);
+  color: var(--md-sys-color-on-error);
+  border-color: transparent;
+}
+
+/* folha: sobe de baixo no celular */
+.overlay.sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  border-radius: 28px 28px 0 0;
+}
+
+.overlay-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overlay-head h2 {
+  flex: 1;
+  margin: 0;
+  font: var(--md-type-title-large);
+}
+
+.sheet-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.sheet-tabs button {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.sheet-tabs .selected {
+  color: var(--text);
+  border-bottom-color: var(--accent, var(--md-sys-color-primary));
+}
+
+.sheet-body p {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.sheet-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.sheet-option > div {
+  flex: 1;
+}
+
+.chip-inuse {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* desktop: a folha abre pela lateral */
+@media (min-width: 840px) {
+  .overlay.sheet {
+    inset: 0 0 0 auto;
+    width: 420px;
+    height: 100%;
+    max-height: 100%;
+    padding: 24px;
+    border-radius: 28px 0 0 28px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .overlay[open] {
+    animation: overlay-in 160ms ease-out;
+  }
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

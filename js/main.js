@@ -3,6 +3,7 @@
    ========================================================= */
 
 import { markChanged, setRenderer, syncNow } from './cloud.js';
+import { startElapsed } from './elapsed.js';
 import { bindEvents } from './events.js';
 import { refreshRest, restoreRest, setRestDoneHandler } from './rest.js';
 import { startRouter } from './router.js';
@@ -10,11 +11,14 @@ import { mountShell } from './shell.js';
 import { onStateChanged, saveState } from './state.js';
 import { initTheme } from './theme.js';
 import { loadVersions } from './version.js';
+import { bindOverlay } from './views/overlays.js';
 import { render } from './views/render.js';
 
 onStateChanged(markChanged);   // dado mudou -> a sincronização é avisada
 setRenderer(render);           // a sincronização sabe redesenhar a tela
 bindEvents();
+bindOverlay();
+startElapsed();
 
 initTheme();
 mountShell();

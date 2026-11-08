@@ -153,7 +153,7 @@ export function renderHome() {
         <b>${escapeHtml(workoutName(session.w))} em andamento</b>
         <div class="row">
           <button class="primary" data-action="continue">Continuar</button>
-          <button data-action="discard">${ui.confirmingDiscard ? 'Confirmar descarte' : 'Descartar'}</button>
+          <button data-action="discard">Descartar</button>
         </div>
       </div>`;
   }

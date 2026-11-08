@@ -1,14 +1,14 @@
 /* =========================================================
-   Meu Treino — Versão do app (a mesma do CACHE_NAME do sw.js)
+   Meu Treino — Versão do app (a APP_VERSION do sw.js, ex.: 0.13.0)
 
-   Você só aumenta o número no sw.js; o app mostra aqui:
+   Você só muda o número no sw.js; o app mostra aqui:
    - loaded: a versão dos arquivos que esta aba está usando
      (lida de dentro do sw.js guardado no cache, junto com o resto do app);
    - active: a versão do service worker ativo agora. Se for diferente de loaded,
      já existe uma versão mais nova instalada: basta fechar e abrir o app.
    ========================================================= */
 
-const VERSION_PATTERN = /const\s+CACHE_NAME\s*=\s*['"]([^'"]+)['"]/;
+const VERSION_PATTERN = /const\s+APP_VERSION\s*=\s*['"]([^'"]+)['"]/;
 
 export const appVersion = { loaded: '', active: '' };
 

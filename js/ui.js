@@ -28,6 +28,8 @@ export const ui = {
   confirmingDiscard: false,     // true depois do 1º toque em "Descartar"
   backupText: '',               // texto do backup gerado
   loadStep: readLoadStep(),     // passo atual dos botões +/− de carga (kg)
+  sheet: null,                  // { id, tab }: folha de informações do exercício aberta (tab: 'how' | 'tip' | 'alts')
+  dialog: '',                   // diálogo de confirmação aberto ('discard' ou '')
   restEndsAt: 0,                // horário (ms) em que o descanso termina
   restInterval: null,           // intervalo que atualiza o cronômetro
   toastTimeout: null,

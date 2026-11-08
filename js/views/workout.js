@@ -6,29 +6,7 @@ import { LOAD_STEPS } from '../config.js';
 import { displayName, escapeHtml, formatNumber, getEntry, repsUpperBound, workoutColorKey, workoutName } from '../helpers.js';
 import { state } from '../state.js';
 import { openPanels, ui } from '../ui.js';
-import { renderSection, renderStepper } from './components.js';
-
-/** Informações do exercício (botão ℹ): um menu para cada informação. */
-export function renderInfoPanel(exercise, entry) {
-  const id = exercise.id;
-  const alternative = entry.alt >= 0 ? exercise.a[entry.alt] : null;
-
-  // a alternativa escolhida tem só a descrição; o exercício original tem descrição, dica e alternativas
-  const how = alternative ? alternative.d : exercise.d;
-  const tip = alternative ? '' : exercise.t;
-  const others = alternative ? [] : exercise.a;
-
-  let html = '<div class="info-box">';
-  html += renderSection('how:' + id, 'Como executar', how ? escapeHtml(how) : '<small>Sem descrição.</small>');
-  if (tip) {
-    html += renderSection('tip:' + id, 'Dica', escapeHtml(tip));
-  }
-  if (others.length) {
-    const list = others.map(alt => `<b>${escapeHtml(alt.n)}</b><br>${escapeHtml(alt.d || '')}`).join('<br><br>');
-    html += renderSection('alt-info:' + id, `Alternativas (${others.length})`, list);
-  }
-  return html + '</div>';
-}
+import { renderStepper } from './components.js';
 
 export function renderExerciseCard(exercise, letter) {
   const entry = getEntry(exercise);
@@ -48,10 +26,6 @@ export function renderExerciseCard(exercise, letter) {
         <button class="icon-button" data-action="info" data-id="${exercise.id}" aria-label="Como executar">ℹ</button>
       </div>
       <small>Meta ${exercise.s}×${escapeHtml(exercise.r)}${unitSuffix}. ${lastText}</small>`;
-
-  if (openPanels['info:' + exercise.id]) {
-    html += renderInfoPanel(exercise, entry);
-  }
 
   if (!entry.skip) {
     // Sugestão de aumento: bateu o topo da faixa na última vez e a carga ainda é a mesma
@@ -109,12 +83,13 @@ export function renderWorkout() {
   const description = state.treinos[id].desc;
 
   let html = `
-    <div class="header">
+    <div class="header workout-header">
       <button data-action="home" aria-label="Início">←</button>
-      <div>
+      <div class="workout-header-title">
         <h1>${escapeHtml(workoutName(id))}</h1>
         ${description ? `<small>${escapeHtml(description)}</small>` : ''}
       </div>
+      <span class="elapsed" role="timer" aria-label="Tempo de treino"><span class="js-elapsed">00:00</span></span>
     </div>`;
 
   // passo dos botões +/− de carga

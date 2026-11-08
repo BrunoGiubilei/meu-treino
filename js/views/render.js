@@ -2,12 +2,14 @@
    Meu Treino — Escolhe a tela certa e desenha.
    ========================================================= */
 
+import { updateElapsed } from '../elapsed.js';
 import { $, effectiveView } from '../helpers.js';
 import { updateShell } from '../shell.js';
 import { showVersion } from '../version.js';
 import { renderEdit } from './edit.js';
 import { renderHistoryEdit, renderHistoryList } from './history.js';
 import { renderHome } from './home.js';
+import { syncOverlay } from './overlays.js';
 import { renderAppearancePage, renderBackupPage, renderCloudPage } from './pages.js';
 import { renderFichaEdit, renderTreinoEdit } from './treino.js';
 import { renderWorkout } from './workout.js';
@@ -36,6 +38,8 @@ export function render() {
 
   updateShell(view);
   showVersion();
+  updateElapsed();
+  syncOverlay();
 
   // trocou de tela: volta ao topo
   if (view !== lastView) {

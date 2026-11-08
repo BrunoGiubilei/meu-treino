@@ -1,16 +1,21 @@
 /* =========================================================
    Service Worker — faz o app funcionar offline
 
-   IMPORTANTE: sempre que alterar index.html, style.css ou qualquer outro
-   arquivo da lista abaixo (inclusive os de css/, js/ e fonts/), aumente o
-   número de CACHE_NAME (treino-v8 -> treino-v9...). Sem isso, o celular
-   continua usando os arquivos antigos guardados no cache.
+   VERSÃO DO APP (padrão MAIOR.MENOR.CORREÇÃO, ex.: 0.13.0):
+   - MAIOR: a versão do app (1.0.0 = Fase 3 concluída);
+   - MENOR: algo novo foi alterado ou acrescentado (sobe 1 e a correção volta a 0);
+   - CORREÇÃO: ajuste pontual de algo que já existia.
 
-   Esse número aparece no app, na página "Aparência" (e no menu lateral no
-   desktop). O app lê o CACHE_NAME deste arquivo — não mude o nome da constante
-   nem o formato da linha, senão a versão deixa de aparecer.
+   IMPORTANTE: a cada publicação, mude APP_VERSION abaixo — o celular só baixa
+   os arquivos novos se este texto mudar. Qualquer arquivo novo (css/, js/, fonts/)
+   também precisa entrar na lista ASSETS.
+
+   A versão aparece no app, na página "Aparência" (e no menu lateral no desktop).
+   O app lê a linha "const APP_VERSION = '...'" deste arquivo — não mude o nome
+   da constante nem o formato da linha, senão a versão deixa de aparecer.
    ========================================================= */
-const CACHE_NAME = 'treino-v12';
+const APP_VERSION = '0.13.0';
+const CACHE_NAME = 'treino-v' + APP_VERSION;
 
 const ASSETS = [
   './',
@@ -28,6 +33,7 @@ const ASSETS = [
   './js/cloud.js',
   './js/config.js',
   './js/defaults.js',
+  './js/elapsed.js',
   './js/events.js',
   './js/helpers.js',
   './js/icons.js',
@@ -43,6 +49,7 @@ const ASSETS = [
   './js/views/edit.js',
   './js/views/history.js',
   './js/views/home.js',
+  './js/views/overlays.js',
   './js/views/pages.js',
   './js/views/render.js',
   './js/views/treino.js',
@@ -79,7 +86,7 @@ self.addEventListener('activate', (event) => {
 // O app pergunta qual versão está ativa (mostrada em "Aparência")
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'GET_VERSION' && event.ports && event.ports[0]) {
-    event.ports[0].postMessage(CACHE_NAME);
+    event.ports[0].postMessage(APP_VERSION);
   }
 });
 
